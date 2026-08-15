@@ -71,6 +71,7 @@ The resulting report will preserve latency as its own metric before aligning sig
 
 ```text
 .
+|-- AGENTS.md                     # Repository-wide SDD and engineering instructions
 |-- CMakeLists.txt                 # Future top-level native build
 |-- CMakePresets.json              # Future reproducible build presets
 |-- configs/                       # Versioned validation manifests and policies
@@ -189,3 +190,5 @@ The specification milestone is complete when:
 - No production behavior is implied solely by undocumented assumptions.
 
 Implementation will begin only after the initial specifications are reviewed and any open decisions required for Milestone 1 are resolved.
+
+Coding agents must also follow the repository-wide workflow and engineering constraints in [AGENTS.md](AGENTS.md).

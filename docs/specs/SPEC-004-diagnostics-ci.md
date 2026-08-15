@@ -1,11 +1,11 @@
 # SPEC-004: Diagnostics, policy, and CI
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Owners:** Developer experience and automation subsystem
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-14
+- **Last updated:** 2026-08-15
 - **Target milestone:** M1 - End-to-end regression demonstration
-- **Depends on:** SPEC-000, SPEC-001, ADR-0003
+- **Depends on:** SPEC-000, ADR-0003, ADR-0004, ADR-0006
 
 ## Context
 
@@ -54,15 +54,31 @@ Each policy evaluation has one status:
 
 `invalid` is distinct from `fail`: it communicates that the required measurement could not be trusted. A mandatory invalid result still causes a failing process outcome.
 
-### Run status precedence
+### Validation and run status
+
+`validation_status` is derived only from structural validity and policy
+evaluation, using this precedence:
 
 ```text
-internal_error > invalid mandatory measurement > fail > warning > pass
+invalid mandatory measurement > fail > warning > pass
 ```
+
+`info` remains visible on individual policy evaluations but does not create a
+distinct aggregate: a run containing only `pass` and `info` policies has
+`validation_status = pass`.
+
+It becomes immutable when validation finishes. `run_status` uses the same value
+for a completed run, or `internal_error` when runner execution or mandatory
+JSON/HTML reporting could not complete trustworthily. `completion_status`
+records `complete`, `complete_with_optional_artifact_errors`, or `incomplete`.
+An operational error may therefore dominate process exit while preserving the
+underlying `validation_status` and all completed policy evaluations. A failed
+optional plot or audio artifact does not change `run_status`; its per-artifact
+status and reason remain visible.
 
 ## Policy model
 
-A policy SHALL declare:
+A policy is valid only when it supplies the fields required by `POL-EVAL-010`:
 
 - Stable policy ID and related requirement IDs.
 - Metric name and expected unit.
@@ -86,6 +102,10 @@ Supported M1 policy shapes:
 - Absolute difference from baseline.
 - Relative difference from baseline.
 
+Manifest and policy authoring uses strict JSON under ADR-0004. Unknown fields,
+duplicate keys, type coercion, NaN, and infinity are rejected before policy
+execution.
+
 Statistical policies are extended by SPEC-006.
 
 ## Requirements
@@ -101,11 +121,12 @@ Statistical policies are extended by SPEC-006.
 - **POL-EVAL-007:** Floating-point threshold comparisons SHALL document inclusive/exclusive boundaries and any comparison epsilon.
 - **POL-EVAL-008:** Contradictory policies for the same scope SHOULD be detected during manifest validation.
 - **POL-EVAL-009:** Policy rationale and owner SHALL be serialized with or resolvable from the result.
+- **POL-EVAL-010:** Every policy SHALL declare a stable policy ID, related requirement IDs, metric name, expected unit, scope, operator and typed threshold, directionality, severity, mandatory flag, minimum valid observations, rationale, owner, baseline reference when used, and every allowed preprocessing or compensation dependency.
 
 ### Result schema
 
 - **RPT-SCHEMA-001:** Machine-readable results SHALL use a versioned JSON schema.
-- **RPT-SCHEMA-002:** Every run SHALL include run ID, timestamps, test ID, manifest digest, source revision, dirty state, and final status.
+- **RPT-SCHEMA-002:** Every run SHALL include run ID, timestamps, test ID, manifest digest, source revision, dirty state, `validation_status`, `run_status`, and `completion_status` as separate fields.
 - **RPT-SCHEMA-003:** Metrics SHALL store numerical value separately from unit, validity, method/version, and scope.
 - **RPT-SCHEMA-004:** Policy evaluations SHALL store expected condition, actual value, status, severity, and requirement IDs.
 - **RPT-SCHEMA-005:** Compensations SHALL be represented as named transformations with measured parameters, not free-form prose only.
@@ -115,6 +136,12 @@ Statistical policies are extended by SPEC-006.
 - **RPT-SCHEMA-009:** JSON SHALL contain no NaN or infinity tokens; invalid numbers use metric validity plus a null value.
 
 ### Human-readable HTML report
+
+M1 HTML is rendered with Jinja2 autoescaping. Matplotlib uses the non-interactive
+Agg backend to emit static PNG or SVG evidence under relative packaged paths;
+the report uses no CDN, remote font, or required client-side JavaScript. CSS may
+be embedded. Cross-platform automation validates semantic content,
+accessibility markers, and links rather than relying on pixel-identical plots.
 
 - **RPT-HTML-001:** The first view SHALL summarize final status, failed policies, test identity, baseline/candidate identity, and reproduction command.
 - **RPT-HTML-002:** Every failed policy SHALL show actual value, expected condition, unit, severity, and requirement IDs.
@@ -128,8 +155,8 @@ Statistical policies are extended by SPEC-006.
 
 ### Reproduction and provenance
 
-- **RPT-REP-001:** Every report SHALL contain a copy-pastable command using the original manifest.
-- **RPT-REP-002:** Source revision, submodule revisions, toolchain, Python version, native build type, platform, CPU architecture, and relevant environment parameters SHALL be recorded.
+- **RPT-REP-001:** Every report SHALL contain a copy-pastable display command and a structured argument vector referencing the byte-identical packaged manifest; platform-specific quoting SHALL NOT change the represented arguments.
+- **RPT-REP-002:** Source revision, submodule revisions, toolchain, Python version, native build type, platform, CPU architecture, and allowlisted relevant environment parameters SHALL be recorded.
 - **RPT-REP-003:** The manifest and small generated stimulus metadata SHALL be packaged with the report.
 - **RPT-REP-004:** Baseline and candidate artifacts SHALL be identified by digest.
 - **RPT-REP-005:** Secret values and machine-specific credentials SHALL NOT be serialized.
@@ -146,17 +173,18 @@ Statistical policies are extended by SPEC-006.
 
 - **CI-RUN-001:** Local and CI execution SHALL invoke the same test runner and manifests.
 - **CI-RUN-002:** Fast deterministic tests SHALL run on every pull request.
-- **CI-RUN-003:** Extended stress/statistical/spatial tests SHALL run on a documented scheduled or manual trigger.
-- **CI-RUN-004:** Failure and invalid outcomes SHALL return non-zero process status; warnings SHALL be configurable but default to zero.
-- **CI-RUN-005:** CI SHALL publish the JSON result and HTML report when a validation test fails or is invalid.
+- **CI-RUN-003:** M1 extended SPSC stress, ThreadSanitizer, host timing characterization, and long drift sensitivity SHALL run on a documented scheduled or manual trigger; statistical and spatial suites SHALL be added only when their M2 specifications are accepted and implemented.
+- **CI-RUN-004:** Failure and invalid outcomes SHALL return non-zero process status; warnings SHALL return zero in every M1 tier. A blocking condition SHALL use explicit `fail` severity rather than promote all warnings by workflow context.
+- **CI-RUN-005:** CI SHALL attempt to publish JSON and HTML for every completed validation run using a step that executes regardless of validation exit status; failure and invalid runs SHALL additionally publish generated context plots and WAV artifacts. An upload failure SHALL fail the CI adapter job and preserve the already-generated JSON, `validation_status`, and `run_status` without rewriting them.
 - **CI-RUN-006:** Native unit tests, Python unit tests, cross-language integration, and sanitizer jobs SHALL have separate visible results.
 - **CI-RUN-007:** Sanitizer runs SHALL NOT be used for performance thresholds.
 - **CI-RUN-008:** A retry MAY gather confirmation evidence but SHALL NOT replace the first result or automatically convert the original failure to pass.
 - **CI-RUN-009:** Network-independent fast tests SHALL use repository-contained or generated deterministic assets.
+- **CI-RUN-010:** Process exit meanings SHALL remain `0` for pass/info/warning, `1` for policy failure, `2` for invalid mandatory measurement or input/configuration, and `3` for an internal runner/reporting error; later meanings require a breaking-contract revision.
 
 ### Artifact policy
 
-- **RPT-ART-001:** M1 SHALL retain small JSON and HTML results for every CI validation run if platform limits allow.
+- **RPT-ART-001:** M1 CI SHALL invoke JSON/HTML generation and upload for every run regardless of validation exit status; hosting retention and size limits SHALL be explicit validated workflow configuration. Generation failures SHALL follow the dual-status model, while later upload failures SHALL be represented by the CI adapter job/log without mutating the frozen result JSON.
 - **RPT-ART-002:** Failure-context WAV and plots SHALL be retained for failure/invalid runs.
 - **RPT-ART-003:** Large raw captures MAY use a size threshold and explicit retention policy.
 - **RPT-ART-004:** Artifact truncation or omission SHALL be recorded with reason and original size estimate.
@@ -171,7 +199,8 @@ Statistical policies are extended by SPEC-006.
 | `2` | Mandatory measurement invalid or input/configuration invalid |
 | `3` | Internal runner/reporting error prevented trustworthy completion |
 
-Exact CLI syntax remains subject to the implementation spec, but meanings SHALL remain stable after acceptance.
+Exact CLI syntax remains subject to the implementation specification. The
+stable meanings are governed by `CI-RUN-010`.
 
 ## Report evidence hierarchy
 
@@ -200,23 +229,26 @@ This order prevents an attractive plot from obscuring a structural defect.
 
 | Test ID | Requirement IDs | Scenario | Expected result |
 |---|---|---|---|
-| `T-POL-001` | `POL-EVAL-001..009` | Evaluate mixed pass/warn/fail policies | Independent results and correct precedence |
-| `T-RPT-001` | `RPT-SCHEMA-001..009` | Serialize full and invalid results | Schema-valid JSON without non-standard numbers |
-| `T-RPT-002` | `RPT-HTML-001..009` | Render multi-fault report | Complete accessible offline report |
-| `T-RPT-003` | `RPT-REP-001..005` | Package reproducible run | Safe provenance and working command |
-| `T-BASE-001` | `POL-BASE-001..005` | Validate with missing and changed baseline | Invalid/explicit workflow; no silent update |
-| `T-CI-001` | `CI-RUN-001..009` | Run fast workflow and forced failure | Correct jobs, exit code, and artifacts |
-| `T-ART-001` | `RPT-ART-001..005` | Exceed configured artifact size | Declared omission/truncation, result preserved |
+| `T-POL-001` | `POL-EVAL-001`, `POL-EVAL-002`, `POL-EVAL-003`, `POL-EVAL-004`, `POL-EVAL-005`, `POL-EVAL-006`, `POL-EVAL-007`, `POL-EVAL-008`, `POL-EVAL-009`, `POL-EVAL-010` | Evaluate mixed pass/info/warning/fail/invalid, exact boundaries, contradictory policies, and immutable metrics | Validated policy fields, independent results, and correct validation precedence |
+| `T-RPT-001` | `RPT-SCHEMA-001`, `RPT-SCHEMA-002`, `RPT-SCHEMA-003`, `RPT-SCHEMA-004`, `RPT-SCHEMA-005`, `RPT-SCHEMA-006`, `RPT-SCHEMA-007`, `RPT-SCHEMA-008`, `RPT-SCHEMA-009` | Serialize full, invalid, additive-field, and non-finite cases | Schema-valid JSON without non-standard numbers |
+| `T-RPT-002` | `RPT-HTML-001`, `RPT-HTML-002`, `RPT-HTML-003`, `RPT-HTML-004`, `RPT-HTML-005`, `RPT-HTML-006`, `RPT-HTML-007`, `RPT-HTML-008`, `RPT-HTML-009` | Render multi-fault, missing-artifact, escaped-text, and offline report cases | Complete accessible offline report with resolved relative links |
+| `T-RPT-003` | `RPT-REP-001`, `RPT-REP-002`, `RPT-REP-003`, `RPT-REP-004`, `RPT-REP-005` | Package a reproducible run and inject secret-like non-allowlisted environment values | Working structured/display command, safe provenance, no secret serialization |
+| `T-BASE-001` | `POL-BASE-001`, `POL-BASE-002`, `POL-BASE-003`, `POL-BASE-004`, `POL-BASE-005` | Validate with missing and intentionally changed baseline | Invalid or explicit workflow; no silent update |
+| `T-CI-001` | `CI-RUN-001`, `CI-RUN-002`, `CI-RUN-003`, `CI-RUN-004`, `CI-RUN-005`, `CI-RUN-006`, `CI-RUN-007`, `CI-RUN-008`, `CI-RUN-009`, `CI-RUN-010` | Force pass/warning/fail/invalid/internal outcomes, retry, sanitizer, and artifact steps | Correct visible jobs, stable exit codes, first-result preservation, and always-attempted evidence |
+| `T-ART-001` | `RPT-ART-001`, `RPT-ART-002`, `RPT-ART-003`, `RPT-ART-004`, `RPT-ART-005` | Exceed configured artifact size and force optional/mandatory generation failures | Declared omission or artifact error; validation status and partial evidence preserved |
 
 ## Open questions
 
-- [ ] Choose the HTML rendering approach and dependency after a minimal prototype compares maintainability and artifact size.
-- [ ] Choose YAML or JSON authoring for policies while retaining JSON Schema validation.
-- [ ] Define CI artifact retention days after selecting the hosting platform plan.
-- [ ] Decide whether warnings should optionally block release-tier workflows in M1 or M2.
+No contract question blocks M1 implementation. ADR-0004 selects JSON, Jinja2
+and static Matplotlib assets define HTML, and M1 warnings never block. Artifact
+retention days and size limits are deployment values that must be checked
+against the actual GitHub plan before the workflow PR; no value is invented by
+this specification. A future release process can use explicit `fail` policies
+or amend the contract rather than silently promoting warnings.
 
 ## Revision history
 
 | Date | Change | Classification |
 |---|---|---|
 | 2026-08-14 | Initial diagnostics/policy/CI contract | New specification |
+| 2026-08-15 | Resolve JSON, dual-status, HTML, warning, artifact, exit-code, and traceability decisions; accept contract | Compatible clarification |

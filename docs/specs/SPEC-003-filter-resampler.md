@@ -1,11 +1,11 @@
 # SPEC-003: Filter and resampler conformance
 
-- **Status:** Draft
+- **Status:** Review
 - **Owners:** DSP conformance subsystem
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-14
+- **Last updated:** 2026-08-15
 - **Target milestone:** M1 - Basic filter conformance; M2 - Resampler depth
-- **Depends on:** SPEC-000, SPEC-001, SPEC-002
+- **Depends on:** SPEC-000, SPEC-001, SPEC-002, ADR-0005, ADR-0006
 
 ## Context
 
@@ -29,6 +29,22 @@ This specification defines stimulus/oracle strategies and requires the test mani
 - Defining one fixed passband/stopband requirement for every component.
 - Claiming perceptual transparency from a single spectral metric.
 
+## Milestone applicability
+
+Requirement prefixes are the normative scope boundary:
+
+| Prefix | Earliest implementation milestone | M1 disposition |
+|---|---|---|
+| `FIL-*` | M1 | Proposed stateful biquad conformance slice; blocked until this specification is accepted |
+| `SRC-*` | M2 | Contract preserved, but no general resampler SUT, external oracle, dependency, or conformance claim in M1 |
+
+An offline wrong-ratio signal generator used by SPEC-001 to test drift is not a
+resampler SUT and does not satisfy any `SRC-*` requirement. The combined
+specification remains in `Review` until `T-FIL-CAL-001` closes the M1 numerical
+contract and maintainers either accept the M2 resampler contract/oracle
+governance or move that contract to a dedicated specification without changing
+its existing requirement IDs.
+
 ## Common definitions
 
 - **Transfer function estimate:** ratio of output to input spectra under a valid excitation and numerical floor.
@@ -47,7 +63,10 @@ Used for impulse response, integer latency, finite response length, channel rout
 
 ### Coherent tones and multitone
 
-Used for gain, frequency mapping, distortion, images, and targeted passband/stopband points. Frequencies SHALL be below input Nyquist and selected to avoid ambiguous bin leakage or use a documented window correction.
+Used for gain, frequency mapping, distortion, images, and targeted
+passband/stopband points. Frequencies follow `SRC-CFG-002` and are selected to
+avoid ambiguous bin leakage or use the window correction required by the
+owning measurement contract.
 
 ### Sweep
 
@@ -58,6 +77,39 @@ Used for dense magnitude/phase coverage. Logarithmic sweep deconvolution MAY sep
 Used only with an averaged transfer-function estimator such as Welch/cross-spectral analysis or sufficient ensemble averaging. A single output-noise FFT normalized by its maximum is not a valid conformance oracle.
 
 ## Filter requirements
+
+### Initial M1 SUT
+
+The initial SUT is a stateful float32 direct-form-II-transposed low-pass biquad
+supporting mono and stereo streams. Coefficients are explicit, normalized to
+`a0 = 1`, and stored with the manifest. The independent oracle evaluates the
+same declared transfer-function coefficients in float64 and records its method
+version. For each channel and frame, the sign/state convention is:
+
+```text
+y[n]  = b0 * x[n] + s1
+s1'   = b1 * x[n] - a1 * y[n] + s2
+s2'   = b2 * x[n] - a2 * y[n]
+H(z)  = (b0 + b1*z^-1 + b2*z^-2) / (1 + a1*z^-1 + a2*z^-2)
+```
+
+Reset sets both state values to positive zero. A configuration is eligible only
+when coefficients are finite, `a0` has already been normalized to one, both
+poles lie strictly inside the unit circle, and a declared analytical bound for
+the configured input/duration fits the float32 domain. Other configurations
+fail before streaming. Tests cover reset, state carryover, two block
+partitions, partial final blocks, and labeled wrong-sign/coefficient,
+reset-per-block, and channel-stride faults.
+
+M1 does not prescribe one fixed FFT point count. For impulse measurement, the
+manifest selects the impulse length from the reviewed analytical tail-bound
+method and its numerical floor, then uses an FFT length large enough to avoid
+circular truncation on the reported grid. All valid rFFT bins are evaluated
+against the declared passband/transition/stopband regions. A sparse
+coherent-tone set is an independent boundary check, not the source of a
+universal frequency-density number. `T-FIL-CAL-001` must approve the bound
+method and the float32-versus-float64 envelopes before the M1 filter slice can
+be accepted.
 
 ### Configuration and oracle
 
@@ -147,39 +199,56 @@ Each variant maps to at least one expected detector and report explanation.
 
 ## Acceptance criteria
 
-1. A known biquad or FIR matches its analytical response inside a manifest-defined envelope.
+### M1 filter slice
+
+1. The selected DF2T low-pass biquad matches its analytical response inside a manifest-defined, calibration-backed envelope.
 2. A filter implementation that resets state at block boundaries fails chunking invariance and identifies boundary locations.
 3. A wrong coefficient produces a frequency-localized magnitude failure with worst-frequency evidence.
-4. A correct resampler preserves expected tone frequency, duration convention, and passband level.
-5. Missing anti-alias filtering produces measurable folded energy and a targeted diagnosis.
-6. Ratio and output-length faults are distinguished from fixed latency.
-7. All response reports state FFT/window/oracle configuration.
+4. Every filter response report states FFT/window/oracle configuration.
+
+### M2 resampler slice
+
+1. A correct resampler preserves expected tone frequency, duration convention, and passband level.
+2. Missing anti-alias filtering produces measurable folded energy and a targeted diagnosis.
+3. Ratio and output-length faults are distinguished from fixed latency.
+4. Every resampler response report states FFT/window/oracle configuration.
 
 ## Planned test traceability
 
 | Test ID | Requirement IDs | Scenario | Expected result |
 |---|---|---|---|
-| `T-FIL-001` | `FIL-CFG-001..004`, `FIL-MET-001..006` | Analytical low-pass response | Envelope pass and complete evidence |
+| `T-FIL-CAL-001` | `FIL-CFG-002`, `FIL-CFG-004`, `FIL-MET-001`, `FIL-MET-004`, `FIL-MET-005`, `FIL-STR-002`, `FIL-STR-004`, `FIL-STR-005` | Calibrate tail bound and numerical envelopes across toolchains/coefficients, then evaluate disjoint holdout cases | Reviewed bound method and manifest envelopes without tuning leakage |
+| `T-FIL-001` | `FIL-CFG-001`, `FIL-CFG-002`, `FIL-CFG-003`, `FIL-CFG-004`, `FIL-MET-001`, `FIL-MET-002`, `FIL-MET-003`, `FIL-MET-004`, `FIL-MET-005`, `FIL-MET-006` | Analytical low-pass response with tail-bound grid and region envelopes | Envelope pass and complete worst-frequency evidence |
 | `T-FIL-002` | `FIL-MET-003` | White noise through known filter | Averaged input/output transfer estimate |
-| `T-FIL-003` | `FIL-STR-002`, `FIL-STR-006` | Stateful filter across block sizes and reset | Equivalent stream; reset deterministic |
+| `T-FIL-003` | `FIL-STR-001`, `FIL-STR-002`, `FIL-STR-006` | Stateful filter across block sizes, reset, and state carryover | Equivalent stream and deterministic independent reset behavior |
 | `T-FIL-004` | `FIL-STR-004` | Long stability stress | Finite bounded output |
 | `T-FIL-005` | `FIL-STR-002` | Inject reset-per-block bug | Boundary-localized failure |
-| `T-SRC-001` | `SRC-CFG-001..004`, `SRC-TIME-001..003` | 48 kHz -> 44.1 kHz impulse/tone | Correct length, latency, and frequency |
+| `T-FIL-006` | `FIL-STR-003`, `FIL-STR-005` | Silence/denormal cases and invalid versus extreme-valid coefficients | Declared silence behavior or explicit configuration rejection |
+| `T-SRC-001` | `SRC-CFG-001`, `SRC-CFG-002`, `SRC-CFG-003`, `SRC-CFG-004`, `SRC-TIME-001`, `SRC-TIME-002`, `SRC-TIME-003` | M2 48 kHz -> 44.1 kHz impulse/tone | Correct length, latency, and frequency |
 | `T-SRC-002` | `SRC-MET-003` | Downsample with out-of-output-band input energy | Folded energy below policy |
 | `T-SRC-003` | `SRC-MET-004` | Upsample controlled multitone | Images below policy |
-| `T-SRC-004` | `SRC-STR-002`, `SRC-TIME-004..005` | Partition stream and flush | Equivalent output and tail convention |
+| `T-SRC-004` | `SRC-STR-002`, `SRC-TIME-004`, `SRC-TIME-005` | Partition stream and flush | Equivalent output and tail convention |
 | `T-SRC-005` | `SRC-STR-005` | Inject incorrect ratio | Drift/ratio diagnosis, not fixed-delay-only |
 | `T-SRC-006` | `SRC-MET-006` | Independent stereo tones | No swap or excess crosstalk |
+| `T-SRC-007` | `SRC-MET-001`, `SRC-MET-002`, `SRC-MET-005`, `SRC-MET-007` | M2 coherent passband, artifact-resistant sweep/multitone, DC, and near-Nyquist cases | Correct mapped frequency/level and explicit edge validity |
+| `T-SRC-008` | `SRC-STR-001`, `SRC-STR-003`, `SRC-STR-004` | M2 finite input, identical channels, and diagnostic round trip | Finite/equivalent channels; round trip never used as sole oracle |
 
 ## Open questions
 
-- [ ] Choose the initial filter SUT: biquad low-pass, FIR, or both.
-- [ ] Choose the high-quality resampler oracle and record its license/version.
-- [ ] Define M1 frequency-grid density and extended-tier sweep density.
-- [ ] Decide whether THD+N belongs in this specification or a future nonlinear/audio-quality specification.
+- [x] Use a stateful float32 DF2T low-pass biquad with a float64 analytical oracle for the proposed M1 filter slice.
+- [x] Derive the M1 FFT grid from an analytical response-tail bound and declared numerical floor instead of a universal point count.
+- [x] Defer THD+N to a future nonlinear/audio-quality specification.
+- [ ] Execute `T-FIL-CAL-001` across supported compilers, representative pole radii/coefficient sets, block partitions, and disjoint holdout cases; approve the analytical tail-bound method plus float32-versus-float64 magnitude, phase, and chunking envelopes.
+- [ ] For M2, select and approve the general resampler oracle, version, license, ratio/flush conventions, and calibration corpus before any `SRC-*` implementation.
+- [ ] Decide whether to accept the combined M1/M2 contract or move `SRC-*` unchanged to a dedicated specification.
+
+The unchecked filter calibration and M2 contract-governance items keep the
+combined specification in `Review`. They do not add resampler work to M1 and
+do not supply universal numerical tolerances.
 
 ## Revision history
 
 | Date | Change | Classification |
 |---|---|---|
 | 2026-08-14 | Initial filter/resampler contract | New specification |
+| 2026-08-15 | Select the M1 biquad, derive frequency-grid rules, defer resampler/THD+N scope, and complete planned traceability | Compatible clarification |

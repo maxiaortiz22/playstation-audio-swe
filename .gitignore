@@ -1,0 +1,26 @@
+# Build outputs
+/build/
+/out/
+/dist/
+/_deps/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Generated validation artifacts
+/artifacts/
+/reports/
+/results/
+
+# IDE and OS metadata
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

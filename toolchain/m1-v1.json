@@ -1,0 +1,68 @@
+{
+  "record_version": "1.0.0",
+  "record_date": "2026-08-15",
+  "architecture": "x86_64",
+  "cpp": {
+    "standard": "20",
+    "extensions": false,
+    "windows": {
+      "runner": "windows-2022",
+      "compiler": "MSVC v143"
+    },
+    "linux_gcc": {
+      "runner": "ubuntu-24.04",
+      "compiler": "GCC 13"
+    },
+    "linux_clang": {
+      "runner": "ubuntu-24.04",
+      "compiler": "Clang 18"
+    }
+  },
+  "python": {
+    "3.11": "3.11.16",
+    "3.12": "3.12.10",
+    "3.13": "3.13.15"
+  },
+  "cmake": {
+    "version": "3.31.6",
+    "minimum_supported": "3.25.0",
+    "archives": {
+      "linux-x86_64": {
+        "url": "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-linux-x86_64.tar.gz",
+        "sha256": "5a1133ff103c71eb5120e2cc3de922733e7d8a26a98ae716397e8676adb367bf"
+      },
+      "windows-x86_64": {
+        "url": "https://github.com/Kitware/CMake/releases/download/v3.31.6/cmake-3.31.6-windows-x86_64.zip",
+        "sha256": "d163cd3ab4959b0a53fa8988f2ddbd2e6c501658201e6a154386bad9dbe4f836"
+      }
+    }
+  },
+  "ninja": {
+    "version": "1.12.1",
+    "minimum_supported": "1.12.0",
+    "archives": {
+      "linux-x86_64": {
+        "url": "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-linux.zip",
+        "sha256": "6f98805688d19672bd699fbbfa2c2cf0fc054ac3df1f0e6a47664d963d530255"
+      },
+      "windows-x86_64": {
+        "url": "https://github.com/ninja-build/ninja/releases/download/v1.12.1/ninja-win.zip",
+        "sha256": "f550fec705b6d6ff58f2db3c374c2277a37691678d6aba463adcbb129108467a"
+      }
+    }
+  },
+  "actions": {
+    "actions/checkout": {
+      "release": "v6.1.0",
+      "commit": "d23441a48e516b6c34aea4fa41551a30e30af803"
+    },
+    "actions/setup-python": {
+      "release": "v6.2.0",
+      "commit": "a309ff8b426b58ec0e2a45f0f869d46889d02405"
+    }
+  },
+  "submodules": {
+    "third_party/pybind11": "97bf890db679505a14dfe547a5e77bb2bd05dc90",
+    "third_party/googletest": "52eb8108c5bdec04579160ae17225d66034bd723"
+  }
+}

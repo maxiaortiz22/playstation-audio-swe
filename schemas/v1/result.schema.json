@@ -1,0 +1,280 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audio-validation-systems-lab.invalid/schemas/v1/result.schema.json",
+  "title": "Audio Validation Systems Lab result v1",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "run_id",
+    "timestamps",
+    "test_id",
+    "requirement_ids",
+    "manifest_digest",
+    "source_revision",
+    "dirty_state",
+    "validation_status",
+    "run_status",
+    "completion_status",
+    "provenance",
+    "metrics",
+    "policy_evaluations",
+    "compensations",
+    "events",
+    "artifacts",
+    "reproduction"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "run_id": { "$ref": "#/$defs/non_empty_string" },
+    "timestamps": { "$ref": "#/$defs/timestamps" },
+    "test_id": { "$ref": "#/$defs/non_empty_string" },
+    "requirement_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/non_empty_string" }
+    },
+    "manifest_digest": { "$ref": "#/$defs/sha256" },
+    "source_revision": { "$ref": "#/$defs/non_empty_string" },
+    "dirty_state": { "type": "boolean" },
+    "validation_status": {
+      "type": "string",
+      "enum": ["pass", "warning", "fail", "invalid"]
+    },
+    "run_status": {
+      "type": "string",
+      "enum": ["pass", "warning", "fail", "invalid", "internal_error"]
+    },
+    "completion_status": {
+      "type": "string",
+      "enum": ["complete", "complete_with_optional_artifact_errors", "incomplete"]
+    },
+    "provenance": { "$ref": "#/$defs/provenance" },
+    "metrics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/metric" }
+    },
+    "policy_evaluations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/policy_evaluation" }
+    },
+    "compensations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/compensation" }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifact" }
+    },
+    "reproduction": { "$ref": "#/$defs/reproduction" }
+  },
+  "$defs": {
+    "non_empty_string": { "type": "string", "minLength": 1 },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "json_scalar": {
+      "type": ["number", "string", "boolean", "null"]
+    },
+    "timestamps": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["started_at", "finished_at"],
+      "properties": {
+        "started_at": { "type": "string", "format": "date-time" },
+        "finished_at": { "type": ["string", "null"], "format": "date-time" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "dependency_revisions",
+        "dependency_lock_digests",
+        "toolchain",
+        "toolchain_record_digest",
+        "platform"
+      ],
+      "properties": {
+        "dependency_revisions": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/non_empty_string" }
+        },
+        "dependency_lock_digests": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "$ref": "#/$defs/sha256" }
+        },
+        "toolchain": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": true
+        },
+        "toolchain_record_digest": { "$ref": "#/$defs/sha256" },
+        "platform": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["fingerprint", "operating_system", "architecture"],
+          "properties": {
+            "fingerprint": { "$ref": "#/$defs/non_empty_string" },
+            "operating_system": { "$ref": "#/$defs/non_empty_string" },
+            "architecture": { "$ref": "#/$defs/non_empty_string" }
+          }
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["kind"],
+      "properties": {
+        "kind": { "$ref": "#/$defs/non_empty_string" }
+      }
+    },
+    "method": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "version": { "$ref": "#/$defs/non_empty_string" }
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["metric_id", "value", "unit", "validity", "method", "scope"],
+      "properties": {
+        "metric_id": { "$ref": "#/$defs/non_empty_string" },
+        "value": { "type": ["number", "null"] },
+        "unit": { "$ref": "#/$defs/non_empty_string" },
+        "validity": {
+          "type": "string",
+          "enum": ["valid", "not_applicable", "insufficient_data", "invalid_input", "analysis_error"]
+        },
+        "method": { "$ref": "#/$defs/method" },
+        "scope": { "$ref": "#/$defs/scope" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "validity": { "const": "valid" } }, "required": ["validity"] },
+          "then": { "properties": { "value": { "type": "number" } } },
+          "else": { "properties": { "value": { "type": "null" } } }
+        }
+      ]
+    },
+    "policy_evaluation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["policy_id", "expected_condition", "actual_value", "status", "severity", "requirement_ids"],
+      "properties": {
+        "policy_id": { "$ref": "#/$defs/non_empty_string" },
+        "expected_condition": {
+          "type": "object",
+          "additionalProperties": true,
+          "required": ["operator", "threshold"],
+          "properties": {
+            "operator": { "$ref": "#/$defs/non_empty_string" },
+            "threshold": {}
+          }
+        },
+        "actual_value": { "$ref": "#/$defs/json_scalar" },
+        "status": {
+          "type": "string",
+          "enum": ["pass", "info", "warning", "fail", "invalid"]
+        },
+        "severity": { "type": "string", "enum": ["info", "warning", "fail"] },
+        "requirement_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/non_empty_string" }
+        }
+      }
+    },
+    "measured_parameter": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "value", "unit"],
+      "properties": {
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "value": { "$ref": "#/$defs/json_scalar" },
+        "unit": { "$ref": "#/$defs/non_empty_string" }
+      }
+    },
+    "compensation": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["name", "measured_parameters"],
+      "properties": {
+        "name": { "$ref": "#/$defs/non_empty_string" },
+        "measured_parameters": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/measured_parameter" }
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "channels", "start_frame", "end_frame", "start_seconds", "end_seconds", "confidence", "evidence_references"],
+      "properties": {
+        "type": { "$ref": "#/$defs/non_empty_string" },
+        "channels": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/non_empty_string" }
+        },
+        "start_frame": { "type": "integer", "minimum": 0 },
+        "end_frame": { "type": "integer", "minimum": 0 },
+        "start_seconds": { "type": "number", "minimum": 0 },
+        "end_seconds": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "number" },
+        "evidence_references": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/non_empty_string" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["relative_path", "media_type", "content_hash", "size_bytes", "role", "generation_status"],
+      "properties": {
+        "relative_path": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?![A-Za-z][A-Za-z0-9+.-]*:)(?![/\\\\]).+"
+        },
+        "media_type": { "$ref": "#/$defs/non_empty_string" },
+        "content_hash": { "$ref": "#/$defs/sha256" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "role": { "$ref": "#/$defs/non_empty_string" },
+        "generation_status": {
+          "type": "string",
+          "enum": ["generated", "omitted", "failed"]
+        }
+      }
+    },
+    "reproduction": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["display_command", "arguments"],
+      "properties": {
+        "display_command": { "$ref": "#/$defs/non_empty_string" },
+        "arguments": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

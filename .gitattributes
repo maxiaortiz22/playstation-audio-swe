@@ -1,0 +1,9 @@
+# Contract and build inputs use stable LF bytes on every checkout.
+*.json text eol=lf
+*.yml text eol=lf
+*.toml text eol=lf
+*.lock text eol=lf
+*.py text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+CMakeLists.txt text eol=lf

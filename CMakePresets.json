@@ -1,0 +1,60 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "native-debug",
+      "displayName": "Native C++20 debug build",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_CXX_EXTENSIONS": "OFF",
+        "AVSYS_BUILD_PYTHON": "OFF",
+        "AVSYS_BUILD_TESTS": "ON",
+        "BUILD_TESTING": "ON"
+      }
+    },
+    {
+      "name": "native-sanitizers",
+      "inherits": "native-debug",
+      "displayName": "Native C++20 ASan/UBSan build",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "AVSYS_ENABLE_SANITIZERS": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "native-debug",
+      "configurePreset": "native-debug",
+      "jobs": 2
+    },
+    {
+      "name": "native-sanitizers",
+      "configurePreset": "native-sanitizers",
+      "jobs": 2
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "native-debug",
+      "configurePreset": "native-debug",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "native-sanitizers",
+      "configurePreset": "native-sanitizers",
+      "output": {
+        "outputOnFailure": true
+      }
+    }
+  ]
+}

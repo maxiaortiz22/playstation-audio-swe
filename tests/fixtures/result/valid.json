@@ -1,0 +1,128 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "foundation-run-001",
+  "timestamps": {
+    "started_at": "2026-08-15T12:00:00Z",
+    "finished_at": "2026-08-15T12:00:01Z"
+  },
+  "test_id": "foundation.roundtrip",
+  "requirement_ids": [
+    "SYS-REP-003",
+    "RPT-SCHEMA-001",
+    "RPT-SCHEMA-002",
+    "RPT-SCHEMA-003",
+    "RPT-SCHEMA-004",
+    "RPT-SCHEMA-005",
+    "RPT-SCHEMA-006",
+    "RPT-SCHEMA-007",
+    "RPT-SCHEMA-008",
+    "RPT-SCHEMA-009"
+  ],
+  "manifest_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "source_revision": "a55af88e86f44b64af93422bc514b843eb9c79dc",
+  "dirty_state": false,
+  "validation_status": "pass",
+  "run_status": "pass",
+  "completion_status": "complete",
+  "provenance": {
+    "dependency_revisions": {
+      "pybind11": "97bf890db679505a14dfe547a5e77bb2bd05dc90",
+      "googletest": "52eb8108c5bdec04579160ae17225d66034bd723"
+    },
+    "dependency_lock_digests": {
+      "runtime.lock": "293d1ab26abbd0ce68b3435e8663e451f132ed63b8fb7defa5f5949e1028b74d",
+      "build-test.lock": "bf4669885f473c6e7ff3b2646d25c0dd09ed379e202d1e25c016c2302a87db0f"
+    },
+    "toolchain": {
+      "record": "toolchain-v1",
+      "cmake": "3.31.6",
+      "ninja": "1.12.1",
+      "python": "3.12.10"
+    },
+    "toolchain_record_digest": "097d85bdd52f6340c9d2de04e0b26eaa9ace57e5ccb96d7263990210ed303262",
+    "platform": {
+      "fingerprint": "windows-2022-x86_64-msvc-v143",
+      "operating_system": "Windows",
+      "architecture": "x86_64"
+    }
+  },
+  "metrics": [
+    {
+      "metric_id": "foundation.import",
+      "value": 1,
+      "unit": "boolean",
+      "validity": "valid",
+      "method": {
+        "name": "metadata-match",
+        "version": "1"
+      },
+      "scope": {
+        "kind": "aggregate"
+      }
+    },
+    {
+      "metric_id": "not-yet-applicable",
+      "value": null,
+      "unit": "frames",
+      "validity": "not_applicable",
+      "method": {
+        "name": "placeholder",
+        "version": "1"
+      },
+      "scope": {
+        "kind": "aggregate"
+      }
+    }
+  ],
+  "policy_evaluations": [
+    {
+      "policy_id": "foundation-version-match",
+      "expected_condition": {
+        "operator": "exact_match",
+        "threshold": "0.1.0"
+      },
+      "actual_value": "0.1.0",
+      "status": "pass",
+      "severity": "fail",
+      "requirement_ids": ["SYS-BND-001"]
+    }
+  ],
+  "compensations": [
+    {
+      "name": "identity",
+      "measured_parameters": [
+        {
+          "name": "lag",
+          "value": 0,
+          "unit": "frames"
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "type": "foundation-smoke",
+      "channels": ["left", "right"],
+      "start_frame": 0,
+      "end_frame": 0,
+      "start_seconds": 0.0,
+      "end_seconds": 0.0,
+      "confidence": 1.0,
+      "evidence_references": ["metadata-json"]
+    }
+  ],
+  "artifacts": [
+    {
+      "relative_path": "metadata/result.json",
+      "media_type": "application/json",
+      "content_hash": "2222222222222222222222222222222222222222222222222222222222222222",
+      "size_bytes": 1024,
+      "role": "machine-readable-result",
+      "generation_status": "generated"
+    }
+  ],
+  "reproduction": {
+    "display_command": "python -m avsys --manifest manifest.json",
+    "arguments": ["python", "-m", "avsys", "--manifest", "manifest.json"]
+  }
+}

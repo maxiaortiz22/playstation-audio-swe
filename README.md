@@ -7,13 +7,14 @@ An interview-oriented, production-style demonstration of how to turn audio behav
 
 ## Project status
 
-The repository is currently in the **Specification-Driven Development (SDD)**
-phase. The 2026-08-15
+The repository is in the first implementation phase of its
+**Specification-Driven Development (SDD)** lifecycle. The 2026-08-15
 [Milestone 1 contract acceptance review](docs/sdd/M1-acceptance-review.md)
 accepted the system, real-time transport, and diagnostics contracts. The
 comparator and combined filter/resampler specification remain in `Review`
-until their recorded evidence/governance gates close. No production code or
-build scaffolding exists yet.
+until their recorded evidence/governance gates close. The M1 foundation slice
+provides reproducible native build/test, wheel/import, and strict JSON-schema
+validation without introducing DSP behavior.
 
 The first implementation milestone will demonstrate an end-to-end audio regression workflow spanning:
 
@@ -79,8 +80,8 @@ The resulting report will preserve latency as its own metric before aligning sig
 ```text
 .
 |-- AGENTS.md                     # Repository-wide SDD and engineering instructions
-|-- CMakeLists.txt                 # Future top-level native build
-|-- CMakePresets.json              # Future reproducible build presets
+|-- CMakeLists.txt                 # Reproducible C++20 native/binding build
+|-- CMakePresets.json              # Native and sanitizer build presets
 |-- configs/                       # Versioned validation manifests and policies
 |-- cpp/
 |   |-- include/avsys/             # Public native contracts
@@ -99,10 +100,94 @@ The resulting report will preserve latency as its own metric before aligning sig
 |   |-- specs/                     # System and feature specifications
 |   `-- adr/                       # Architecture Decision Records
 `-- third_party/
+    |-- googletest/                # Git submodule pinned to v1.17.0
     `-- pybind11/                  # Git submodule pinned to v3.1.0
 ```
 
-Directories labeled "Future" are part of the approved design but are intentionally not scaffolded until their owning specification enters implementation.
+Only the metadata-only native component, packaging boundary, and initial JSON
+contracts are implemented. The remaining directories describe approved future
+structure and are not production behavior until their owning specification
+enters implementation.
+
+## Foundation quick start
+
+The versioned toolchain record is
+[`toolchain/m1-v1.json`](toolchain/m1-v1.json). Use CMake 3.31.6, Ninja 1.12.1,
+a supported C++ compiler, and CPython 3.11-3.13. On Windows, run native and
+wheel commands from an x64 Visual Studio 2022 v143 developer environment.
+
+Initialize and verify both pinned submodules:
+
+```bash
+git submodule update --init --recursive
+python tools/verify_submodules.py
+```
+
+Configure from a fresh CMake cache, build, and run the native test:
+
+```powershell
+where.exe cl.exe
+ninja --version
+cmake --fresh --preset native-debug -DCMAKE_CXX_COMPILER=cl.exe
+cmake --build --preset native-debug
+ctest --preset native-debug
+```
+
+On Linux, set `CC=gcc-13 CXX=g++-13` or
+`CC=clang-18 CXX=clang++-18` for the intended ADR-0006 row before the same
+preset commands.
+
+Create a local Python environment and install the reviewed hash lock. PowerShell
+activation is shown; use `.venv/bin/activate` on POSIX:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --require-hashes -r requirements/build-test.lock
+$env:PYTHONPATH = "python"
+python -m pytest tests/python
+Remove-Item Env:PYTHONPATH
+```
+
+Build without PEP 517 isolation so the reviewed build lock remains
+authoritative:
+
+```powershell
+$env:CMAKE_ARGS = "-DCMAKE_CXX_COMPILER=cl.exe"
+python -m build --wheel --no-isolation
+Remove-Item Env:CMAKE_ARGS
+```
+
+Install the wheel and its runtime lock in a second clean environment, then run
+the import from outside the source tree:
+
+```powershell
+$repo = (Get-Location).Path
+python -m venv build/smoke-venv
+build/smoke-venv/Scripts/python.exe -m pip install --require-hashes -r requirements/runtime.lock
+$wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl).FullName
+build/smoke-venv/Scripts/python.exe -m pip install --no-deps $wheel
+Push-Location $env:TEMP
+& "$repo/build/smoke-venv/Scripts/python.exe" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+Pop-Location
+```
+
+On POSIX, the equivalent clean install/import is:
+
+```bash
+python -m venv build/smoke-venv
+build/smoke-venv/bin/python -m pip install --require-hashes -r requirements/runtime.lock
+build/smoke-venv/bin/python -m pip install --no-deps dist/*.whl
+repo="$PWD"
+smoke_dir="$(mktemp -d)"
+cd "$smoke_dir"
+"$repo/build/smoke-venv/bin/python" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+```
+
+Dependency versions, sources, licenses, and purposes are recorded in the
+[`dependency inventory`](docs/dependency-inventory.md). The four visible CI
+families are native, Python/schema, cross-language wheel/import, and native
+ASan/UBSan. Hosted execution evidence remains distinct from local evidence.
 
 ## Validation layers
 

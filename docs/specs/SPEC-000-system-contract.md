@@ -1,11 +1,11 @@
 # SPEC-000: System and product contract
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Owners:** Repository maintainers
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-14
+- **Last updated:** 2026-08-15
 - **Target milestone:** M1 - End-to-end regression demonstration
-- **Depends on:** ADR-0001, ADR-0002, ADR-0003
+- **Depends on:** ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006
 
 ## Context
 
@@ -33,6 +33,21 @@ The project uses a simulated audio SDK and controlled faults. It does not requir
 - Operating a production distributed worker fleet, artifact store, or hardware lab.
 - Guaranteeing hard real-time behavior on a general-purpose host OS.
 - Supporting arbitrary compressed formats in M1.
+
+## Milestone 1 requirement scope
+
+| Requirement family | M1 disposition |
+|---|---|
+| `SYS-*` except `SYS-REP-002`, plus `RT-*`, `POL-*`, `RPT-*`, `CI-*` | Mandatory M1 contract; extended-tier evidence is still required before `Verified` where specified |
+| `SYS-REP-002` | Conditional M2-or-later asset-input contract; M1 rejects asset-based input manifests |
+| `CMP-*` | Mandatory M1 comparator contract, but implementation is blocked while SPEC-001 remains `Review` |
+| `FIL-*` | Intended M1 filter slice, blocked while combined SPEC-003 remains `Review` |
+| `SRC-*` | M2; no general resampler SUT or conformance claim in M1 |
+| `SPA-*`, `STAT-*` | M2; not part of M1 exit |
+
+A requirement assigned to an extended execution tier is still M1 scope when
+this table says so; the tier controls when evidence runs, not whether the
+requirement exists.
 
 ## Actors
 
@@ -83,7 +98,9 @@ Unless a feature specification states otherwise, M1 canonical audio is:
 
 ### Manifest
 
-A manifest will eventually be serialized as versioned YAML or JSON and SHALL include:
+M1 manifests and their embedded policies use strict UTF-8 JSON as decided by
+ADR-0004. YAML, includes, and external policy references are not accepted M1
+inputs. The manifest contains:
 
 - Schema version and test ID.
 - Human-readable purpose and owner.
@@ -97,7 +114,7 @@ A manifest will eventually be serialized as versioned YAML or JSON and SHALL inc
 
 ### Result
 
-A result SHALL include:
+A result contains:
 
 - Result schema version and run ID.
 - Test ID, requirement IDs, and manifest digest.
@@ -114,7 +131,7 @@ A result SHALL include:
 ### Reproducibility
 
 - **SYS-REP-001:** Every generated stochastic stimulus SHALL use a manifest-provided seed recorded in the result.
-- **SYS-REP-002:** Every asset-based stimulus SHALL record a cryptographic content digest.
+- **SYS-REP-002:** If a future accepted feature permits an asset-based stimulus, it SHALL record and verify a cryptographic content digest; M1 SHALL reject asset-based input manifests.
 - **SYS-REP-003:** Every result SHALL record the manifest digest, source revision, dependency revision, toolchain, and platform fingerprint.
 - **SYS-REP-004:** A local run and CI run using the same manifest and deterministic SUT SHALL produce equivalent raw metrics within the metric's documented numerical tolerance.
 - **SYS-REP-005:** Baselines SHALL be immutable inputs during validation; a validation run SHALL NOT silently update them.
@@ -134,6 +151,8 @@ A result SHALL include:
 - **SYS-EXE-003:** The same offline SUT SHALL be executable using at least two block sizes so chunking invariance can be tested.
 - **SYS-EXE-004:** Native errors SHALL produce structured failure information rather than an unexplained process termination, except for sanitizer-identified fatal defects.
 - **SYS-EXE-005:** Non-finite output samples SHALL be treated as structural failures and SHALL NOT be converted into ordinary numerical similarity scores.
+- **SYS-EXE-006:** A manifest SHALL validate the schema version, test identity, owner, deterministic stimulus definition, audio format, channel map, block sizes, SUT, labeled faults, permitted transforms, metrics, policies, artifact policy, and execution tier before native execution begins.
+- **SYS-EXE-007:** M1 manifest and policy readers SHALL accept only strict UTF-8 JSON, reject duplicate keys, comments, trailing commas, non-finite tokens, implicit type coercion, and schema-unknown authoring fields, and report failures with document and schema paths.
 
 ### Analysis and policy
 
@@ -150,6 +169,7 @@ A result SHALL include:
 - **SYS-DIAG-003:** Every result SHALL contain a deterministic reproduction command that references the original manifest.
 - **SYS-DIAG-004:** Human-readable reports SHALL avoid presenting compensated outputs as raw observations.
 - **SYS-DIAG-005:** Artifact creation failures SHALL be reported without erasing the underlying validation outcome.
+- **SYS-DIAG-006:** Every result SHALL record the result schema version, run and test identity, requirement IDs, manifest digest, source and dependency revisions, dirty state, resolved toolchain and platform, raw metrics and validity, policy evaluations, separate `validation_status`, `run_status`, and `completion_status`, artifact inventory, and a reproduction command.
 
 ### Test-the-validator
 
@@ -167,18 +187,25 @@ A result SHALL include:
 - Alignment and residual analysis.
 - Basic filter, channel, and fault-injection tests.
 - Schema and report generation.
+- Short deterministic drift algebra and validity cases.
 
 Target: suitable for every pull request with no external hardware or network access.
 
 ### Extended tier
 
-- SPSC stress and sanitizer runs.
-- High-resolution filter/resampler sweeps.
-- Statistical repeated measurements.
+- Long SPSC stress, ThreadSanitizer, and host timing characterization.
+- High-resolution filter sweeps in M1 and resampler sweeps beginning in M2.
+- Long-duration drift sensitivity and statistical repeated measurements.
 - SOFA-based spatial conformance.
 - Larger diagnostic artifacts.
 
 Target: nightly, release, or manually selected CI.
+
+The required M1 compiler, platform, Python, and sanitizer jobs are defined by
+ADR-0006. General resampler conformance is an M2 feature even though its future
+contract remains in SPEC-003. M1 input stimuli are generated at runtime under
+ADR-0005; WAV files are diagnostic outputs rather than normative input
+fixtures.
 
 ## M1 acceptance criteria
 
@@ -194,31 +221,38 @@ Target: nightly, release, or manually selected CI.
 
 | Test ID | Requirement IDs | Scenario | Expected result |
 |---|---|---|---|
-| `T-SYS-001` | `SYS-REP-001`, `SYS-REP-004` | Run seeded stimulus twice | Equal deterministic metrics |
-| `T-SYS-002` | `SYS-BND-003` | Pass float64, wrong rank, and non-contiguous views | Documented Python exceptions |
-| `T-SYS-003` | `SYS-EXE-003` | Process identical input with two block sizes | Equivalent output within tolerance |
+| `T-SYS-001` | `SYS-REP-001`, `SYS-REP-003`, `SYS-REP-004`, `SYS-REP-005` | Repeat generated stimuli and attempt baseline mutation | Equivalent metrics, complete provenance, immutable baseline |
+| `T-SYS-ASSET-001` | `SYS-REP-002` | In M1 reject an asset-based input manifest; after a future asset feature is accepted, verify content mismatch handling | Explicit M1 rejection; future execution requires matching digest |
+| `T-SYS-002` | `SYS-BND-001`, `SYS-BND-002`, `SYS-BND-003`, `SYS-BND-004`, `SYS-BND-005` | Build native-only, then pass valid and invalid Python buffers through one coarse call | Independent native core, explicit ownership, documented rejection, no callback GIL access |
+| `T-SYS-003` | `SYS-EXE-001`, `SYS-EXE-002`, `SYS-EXE-003`, `SYS-EXE-004`, `SYS-EXE-006`, `SYS-EXE-007` | Validate strict/invalid JSON, process mono/stereo at two block sizes, and force a recoverable native error | Path-specific schema errors, complete execution, equivalent output, structured native error |
 | `T-SYS-004` | `SYS-ANL-001`, `SYS-ANL-002` | Candidate has known delay | Raw delay preserved; aligned residual separate |
-| `T-SYS-005` | `SYS-DIAG-001`, `SYS-DIAG-003` | Inject channel swap and dropout | Actionable report and reproduction command |
-| `T-SYS-006` | `SYS-TTV-001`, `SYS-TTV-003` | Run labeled positive/negative corpus | Expected detector classifications and explanations |
+| `T-SYS-005` | `SYS-DIAG-001`, `SYS-DIAG-002`, `SYS-DIAG-003`, `SYS-DIAG-004`, `SYS-DIAG-005`, `SYS-DIAG-006` | Inject localized faults and force one artifact failure | Actionable dual-status result, provenance, and packaged reproduction command |
+| `T-SYS-006` | `SYS-TTV-001`, `SYS-TTV-002`, `SYS-TTV-003`, `SYS-TTV-004` | Run disjoint labeled calibration and holdout corpora | Expected classifications, stored fault parameters, explanations, no tuning leakage |
 | `T-SYS-007` | `SYS-EXE-005`, `SYS-ANL-005` | Inject NaN | Structural failure; no misleading similarity pass |
+| `T-POL-001` | `SYS-ANL-003`, `SYS-ANL-004` | Validate incompatible-unit and missing-mandatory-metric policies | Policy rejected or run invalid; never defaults to pass |
 
 ## Dependencies
 
-- SPEC-001 defines comparison semantics.
-- SPEC-002 defines streaming and real-time-style behavior.
-- SPEC-003 defines filter/resampler conformance.
-- SPEC-004 defines result, report, policy, and CI contracts.
-- SPEC-005 defines optional spatial conformance.
-- SPEC-006 defines statistical history and trend analysis.
+- SPEC-001 defines mandatory M1 comparison semantics; its recorded calibration
+  gate blocks comparator implementation.
+- SPEC-002 defines accepted M1 streaming and real-time-style behavior.
+- SPEC-003 proposes the M1 filter slice and preserves M2 resampler requirements;
+  its `Review` status blocks filter production work.
+- SPEC-004 defines accepted M1 result, report, policy, and CI contracts.
+- SPEC-005 defines M2 spatial conformance.
+- SPEC-006 defines M2 statistical history and trend analysis.
 
 ## Open questions
 
-- [ ] Choose YAML or JSON as the authoring format for M1 manifests. JSON remains the canonical schema representation either way.
-- [ ] Decide whether M1 ships a short generated WAV fixture or generates every stimulus at runtime.
-- [ ] Set the supported compiler and Python CI matrix after confirming local toolchain availability.
+No SPEC-000-local question blocks implementation. ADR-0004 selects JSON,
+ADR-0005 selects generated stimuli, and ADR-0006 defines the initial toolchain
+and dependency matrix. The complete M1 demonstration still depends on accepting
+SPEC-001 and the M1 filter slice of SPEC-003; see the
+[M1 acceptance review](../sdd/M1-acceptance-review.md).
 
 ## Revision history
 
 | Date | Change | Classification |
 |---|---|---|
 | 2026-08-14 | Initial system contract | New specification |
+| 2026-08-15 | Resolve M1 format, stimulus, toolchain, tier, result, and traceability decisions; accept contract | Compatible clarification |

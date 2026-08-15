@@ -7,7 +7,13 @@ An interview-oriented, production-style demonstration of how to turn audio behav
 
 ## Project status
 
-The repository is currently in the **Specification-Driven Development (SDD)** phase. The architecture, observable behavior, acceptance criteria, and planned tests are defined before production code is introduced.
+The repository is currently in the **Specification-Driven Development (SDD)**
+phase. The 2026-08-15
+[Milestone 1 contract acceptance review](docs/sdd/M1-acceptance-review.md)
+accepted the system, real-time transport, and diagnostics contracts. The
+comparator and combined filter/resampler specification remain in `Review`
+until their recorded evidence/governance gates close. No production code or
+build scaffolding exists yet.
 
 The first implementation milestone will demonstrate an end-to-end audio regression workflow spanning:
 
@@ -45,14 +51,15 @@ The central demonstration compares a known-good baseline with a candidate implem
 
 The reference scenario will run a deterministic signal through two versions of a simulated audio component. Fault injection will support cases such as:
 
-- Integer and fractional delay.
+- Integer delay in M1; fractional-delay fault characterization and estimator
+  selection are post-M1 scope.
 - Gain and polarity changes.
 - Swapped channels and crosstalk.
 - Clicks, dropouts, repeated blocks, and clipping.
 - DC offset and non-finite samples.
 - Clock drift.
 - Floating-point perturbations.
-- Filter or resampler regressions.
+- Filter regressions in M1; general resampler conformance in M2.
 
 The resulting report will preserve latency as its own metric before aligning signals for residual analysis. It will include metric values, thresholds, waveform and spectral evidence, the exact failure region, environment provenance, and a reproduction command.
 
@@ -165,11 +172,11 @@ The full lifecycle and change rules are documented in [docs/sdd/README.md](docs/
 
 ## Specification index
 
-- [SPEC-000: System and product contract](docs/specs/SPEC-000-system-contract.md)
-- [SPEC-001: Aligned audio regression comparator](docs/specs/SPEC-001-regression-comparator.md)
-- [SPEC-002: Real-time harness and SPSC transport](docs/specs/SPEC-002-realtime-spsc.md)
-- [SPEC-003: Filter and resampler conformance](docs/specs/SPEC-003-filter-resampler.md)
-- [SPEC-004: Diagnostics, policy, and CI](docs/specs/SPEC-004-diagnostics-ci.md)
+- [SPEC-000: System and product contract](docs/specs/SPEC-000-system-contract.md) — Accepted
+- [SPEC-001: Aligned audio regression comparator](docs/specs/SPEC-001-regression-comparator.md) — Review
+- [SPEC-002: Real-time harness and SPSC transport](docs/specs/SPEC-002-realtime-spsc.md) — Accepted
+- [SPEC-003: Filter and resampler conformance](docs/specs/SPEC-003-filter-resampler.md) — Review
+- [SPEC-004: Diagnostics, policy, and CI](docs/specs/SPEC-004-diagnostics-ci.md) — Accepted
 - [SPEC-005: Spatial/HRTF conformance](docs/specs/SPEC-005-spatial-hrtf.md)
 - [SPEC-006: Statistical regression detection](docs/specs/SPEC-006-statistical-regression.md)
 
@@ -178,10 +185,14 @@ The full lifecycle and change rules are documented in [docs/sdd/README.md](docs/
 - [ADR-0001: Use SDD and traceable requirement IDs](docs/adr/ADR-0001-specification-driven-development.md)
 - [ADR-0002: Use pybind11 as a pinned Git submodule](docs/adr/ADR-0002-pybind11-boundary.md)
 - [ADR-0003: Use metric-specific policies instead of one global threshold](docs/adr/ADR-0003-metric-specific-policy.md)
+- [ADR-0004: Use strict JSON for M1 serialized contracts](docs/adr/ADR-0004-json-contracts.md)
+- [ADR-0005: Generate deterministic M1 stimuli at runtime](docs/adr/ADR-0005-generated-stimuli.md)
+- [ADR-0006: Bound the M1 toolchain, CI matrix, and dependencies](docs/adr/ADR-0006-m1-toolchain-ci-dependencies.md)
+- [ADR-0007: Use inline SPSC payloads and explicit cache-line separation](docs/adr/ADR-0007-spsc-payload-and-alignment.md)
 
-## Current milestone exit criteria
+## Current contract status
 
-The specification milestone is complete when:
+The initial documentation inventory and acceptance review are complete:
 
 - All links in this README resolve.
 - Every planned subsystem has a specification with testable requirements.
@@ -189,6 +200,12 @@ The specification milestone is complete when:
 - pybind11 is pinned and reproducibly initialized.
 - No production behavior is implied solely by undocumented assumptions.
 
-Implementation will begin only after the initial specifications are reviewed and any open decisions required for Milestone 1 are resolved.
+Implementation may begin only for an `Accepted` specification. The full M1
+end-to-end implementation remains blocked on the correlation-ambiguity
+calibration and SPEC-001 acceptance, plus the filter calibration and governance
+work needed to accept SPEC-003. General resampler conformance is already M2.
+The review's decision table, dependency graph, PR roadmap, and remaining human
+decisions are in
+[docs/sdd/M1-acceptance-review.md](docs/sdd/M1-acceptance-review.md).
 
 Coding agents must also follow the repository-wide workflow and engineering constraints in [AGENTS.md](AGENTS.md).

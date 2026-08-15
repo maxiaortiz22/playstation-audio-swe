@@ -1,11 +1,11 @@
 # SPEC-002: Real-time harness and SPSC transport
 
-- **Status:** Draft
+- **Status:** Accepted
 - **Owners:** Native runtime subsystem
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-14
-- **Target milestone:** M1 - Native harness; M2 - Extended stress evidence
-- **Depends on:** SPEC-000, ADR-0002
+- **Last updated:** 2026-08-15
+- **Target milestone:** M1 - Native harness and required extended stress evidence
+- **Depends on:** SPEC-000, ADR-0002, ADR-0006, ADR-0007
 
 ## Context
 
@@ -40,13 +40,17 @@ deadline_seconds = frames_per_block / sample_rate_hz
 load_ratio = processing_seconds / deadline_seconds
 ```
 
-The harness processes a finite or streamed sequence of blocks. A callback thread produces audio output and fixed-size telemetry. A consumer thread drains the SPSC transport and performs non-real-time aggregation.
+The harness processes a finite or streamed sequence of blocks. A callback
+thread publishes captured audio and fixed-size telemetry to two independent
+typed SPSC queues. A consumer thread drains both transports and performs
+non-real-time aggregation. ADR-0007 owns the inline payload, loss, counter, and
+cache-alignment decisions.
 
 ## Native data contracts
 
 ### AudioBlock
 
-The M1 block representation SHALL have:
+The M1 inline capture-block representation has:
 
 - Compile-time or initialization-time maximum frame and channel capacity.
 - Runtime frame and channel counts not exceeding capacity.
@@ -57,7 +61,7 @@ The M1 block representation SHALL have:
 
 ### TelemetryPacket
 
-The packet SHALL be fixed-size and trivially copyable, containing at minimum:
+The telemetry packet is fixed-size and trivially copyable, containing at minimum:
 
 - Monotonic sequence number.
 - Stream frame offset.
@@ -69,7 +73,10 @@ The packet SHALL be fixed-size and trivially copyable, containing at minimum:
 
 ## SPSC design contract
 
-The queue has exactly one producer and one consumer. Its capacity is a power of two selected before concurrent use.
+Each queue has exactly one producer and one consumer. Its capacity is a power
+of two selected before concurrent use. Capture and telemetry queues may have
+different capacities and drop counts; their stream offsets and sequence
+numbers permit offline association.
 
 The intended index model uses monotonically increasing unsigned counters with masking for slot selection:
 
@@ -86,7 +93,7 @@ The producer owns writes to `write_counter`; the consumer owns writes to `read_c
 
 - **RT-SPSC-001:** Capacity SHALL be a non-zero power of two and SHALL be fixed before concurrent access.
 - **RT-SPSC-002:** The implementation SHALL expose its usable capacity without an undocumented sentinel-slot reduction.
-- **RT-SPSC-003:** M1 queue elements SHALL be trivially copyable or represented by indices into a preallocated pool.
+- **RT-SPSC-003:** M1 queue elements SHALL use fixed-capacity inline, trivially copyable storage; a preallocated block pool requires a later ADR amendment.
 - **RT-SPSC-004:** Construction MAY allocate; `try_push`, `try_pop`, and callback processing SHALL NOT allocate.
 - **RT-SPSC-005:** The queue SHALL be non-copyable and non-movable after concurrent use begins.
 - **RT-SPSC-006:** The producer/consumer cardinality contract SHALL be documented and debug builds SHOULD detect obvious misuse where practical.
@@ -98,7 +105,7 @@ The producer owns writes to `write_counter`; the consumer owns writes to `read_c
 - **RT-MEM-003:** The consumer SHALL complete reading before publishing the read counter with release semantics.
 - **RT-MEM-004:** The producer SHALL acquire the published read counter before reusing a slot that may still be owned by the consumer.
 - **RT-MEM-005:** Thread-owned counter loads MAY use relaxed ordering when no cross-thread visibility depends on that load.
-- **RT-MEM-006:** Atomics with independent write ownership SHOULD reside on separate destructive-interference regions when the platform exposes a safe alignment value; a documented fallback SHALL exist.
+- **RT-MEM-006:** Atomics with independent write ownership SHALL reside in separately aligned and padded destructive-interference regions using the validated standard value, x86_64 fallback, or explicit override defined by ADR-0007; the selected value SHALL be recorded.
 
 ### Queue behavior
 
@@ -126,7 +133,14 @@ The producer owns writes to `write_counter`; the consumer owns writes to `read_c
 - **RT-OVR-002:** A full transport SHALL increment a lock-free drop counter and return without blocking.
 - **RT-OVR-003:** Reports SHALL distinguish processing underruns/deadline misses from dropped telemetry.
 - **RT-OVR-004:** Sequence gaps SHALL be observable by the consumer.
-- **RT-OVR-005:** An audio-capture overflow policy SHALL be explicit: drop newest, drop oldest outside the callback, or stop the non-real-time test after recording failure state. M1 defaults to drop newest.
+- **RT-OVR-005:** M1 capture and telemetry queues SHALL use drop-newest on full; a later overflow policy requires a specification and ADR amendment.
+
+M1 uses drop-newest for both queues. A capture sequence gap invalidates
+every metric whose required continuous measurement region spans that gap. A
+metric may analyze the remaining contiguous segments independently only when
+its manifest declares segmented semantics; segments are never concatenated as
+if continuous. A telemetry-only gap preserves captured PCM validity but marks
+runtime telemetry incomplete. Neither case is silently reconstructed.
 
 ### Timing
 
@@ -151,7 +165,7 @@ The producer owns writes to `write_counter`; the consumer owns writes to `read_c
 - **RT-PY-001:** Python SHALL configure and start the native harness outside callback execution.
 - **RT-PY-002:** Native execution MAY release the GIL while no Python objects are accessed.
 - **RT-PY-003:** Results SHALL cross into Python after native aggregation or in coarse batches.
-- **RT-PY-004:** Python cancellation SHALL request stop through a bounded native control path and join outside the callback.
+- **RT-PY-004:** Python cancellation SHALL publish a non-blocking native stop request, the harness SHALL check it after the current block and before starting the next block, and Python SHALL join outside the callback.
 
 ## Verification strategy
 
@@ -170,7 +184,9 @@ The producer owns writes to `write_counter`; the consumer owns writes to `read_c
 - Random producer/consumer yielding and stalls.
 - Consumer verifies no duplicate, reordering, or corruption.
 - Expected gaps only when overflow injection is enabled.
-- ThreadSanitizer job where supported.
+- A short deterministic producer/consumer stress case on pull requests.
+- A longer ThreadSanitizer job on Ubuntu 24.04 x86_64 with Clang 18 in the
+  extended scheduled/manual tier.
 
 ### Callback-contract checks
 
@@ -196,25 +212,28 @@ Benchmarks compare processing duration to deadline rather than asserting one uni
 
 | Test ID | Requirement IDs | Scenario | Expected result |
 |---|---|---|---|
-| `T-RT-001` | `RT-SPSC-001..005` | Construct valid/invalid capacities and inspect type behavior | Contract enforced |
-| `T-RT-002` | `RT-QUE-001..005` | Empty/full boundary sequence | Immediate failure without corruption |
-| `T-RT-003` | `RT-QUE-003`, `RT-MEM-001..004` | Concurrent million-packet run | Exact ordered delivery |
+| `T-RT-001` | `RT-SPSC-001`, `RT-SPSC-002`, `RT-SPSC-003`, `RT-SPSC-004`, `RT-SPSC-005`, `RT-SPSC-006` | Construct valid/invalid capacities, inspect inline type behavior, and exercise debug ownership checks | Contract enforced before concurrency |
+| `T-RT-002` | `RT-QUE-001`, `RT-QUE-002`, `RT-QUE-003`, `RT-QUE-004`, `RT-QUE-005`, `RT-QUE-007` | Empty/full boundary sequence plus stale snapshot queries | Immediate failure without corruption; snapshots not used as preconditions |
+| `T-RT-003` | `RT-QUE-003`, `RT-MEM-001`, `RT-MEM-002`, `RT-MEM-003`, `RT-MEM-004`, `RT-MEM-005` | Concurrent ordered run with randomized yields and static memory-order review | Exact ordered delivery and recorded acquire/release evidence |
 | `T-RT-004` | `RT-QUE-006` | Seed counters near wrap | Correct wrap behavior |
-| `T-RT-005` | `RT-CB-001..006` | Instrument callback operations | Zero allocation/blocking violations |
-| `T-RT-006` | `RT-OVR-001..005` | Stall consumer until full | Processing continues; gaps/drop count agree |
-| `T-RT-007` | `RT-TIME-001..007` | Benchmark multiple block sizes | Complete provenance and deadline distribution |
-| `T-RT-008` | `RT-BLK-002..004` | Partition identical stream differently | Equivalent valid output |
-| `T-RT-009` | `RT-PY-001..004` | Execute harness through pybind11 | No Python access in callback; coarse result returned |
+| `T-RT-005` | `RT-CB-001`, `RT-CB-002`, `RT-CB-003`, `RT-CB-004`, `RT-CB-005`, `RT-CB-006`, `RT-CB-007` | Separately instrument allocation, blocking calls, I/O/logging, exceptions, work bounds, and parameter snapshots | Zero callback-contract violations |
+| `T-RT-006` | `RT-OVR-001`, `RT-OVR-002`, `RT-OVR-003`, `RT-OVR-004`, `RT-OVR-005` | Stall audio and telemetry consumers independently until full | Processing continues; validity, gaps, and independent drop counts agree |
+| `T-RT-007` | `RT-TIME-001`, `RT-TIME-002`, `RT-TIME-003`, `RT-TIME-004`, `RT-TIME-005`, `RT-TIME-006`, `RT-TIME-007` | Benchmark multiple block sizes outside sanitizers | Complete provenance and deadline distribution without hard-real-time claims |
+| `T-RT-008` | `RT-BLK-001`, `RT-BLK-002`, `RT-BLK-003`, `RT-BLK-004`, `RT-BLK-005` | Partition identical streams, partial final block, reset, CPU load, and consumer stall | Monotonic metadata, equivalent valid output, bounded injected behavior |
+| `T-RT-009` | `RT-PY-001`, `RT-PY-002`, `RT-PY-003`, `RT-PY-004` | Execute and cancel the harness through pybind11 | No Python callback access; stop observed before another block; coarse result returned |
+| `T-RT-010` | `RT-MEM-006` | Compile forced standard, fallback, and override alignment paths; inspect adjacent wrappers | Valid layout/provenance or explicit configuration failure |
 
 ## Open questions
 
-- [ ] Choose fixed inline audio blocks versus indices into a preallocated block pool for M1 capture.
-- [ ] Confirm the portable fallback alignment used when `std::hardware_destructive_interference_size` is unavailable or compiler-dependent.
-- [ ] Select supported ThreadSanitizer platform; Windows CI may require an alternate Linux job.
-- [ ] Define the cancellation latency requirement after the first working harness establishes bounded behavior.
+No question blocks M1 implementation. ADR-0007 selects inline typed queues and
+the validated x86_64 alignment fallback. ADR-0006 selects Ubuntu 24.04 x86_64
+with Clang 18 for TSan. Cancellation has a block-boundary semantic bound; a
+wall-clock SLO may be proposed only after the harness supplies reproducible
+measurements on a controlled runner.
 
 ## Revision history
 
 | Date | Change | Classification |
 |---|---|---|
 | 2026-08-14 | Initial real-time/SPSC contract | New specification |
+| 2026-08-15 | Resolve payload, overflow, alignment, TSan, cancellation, and traceability decisions; accept contract | Compatible clarification |

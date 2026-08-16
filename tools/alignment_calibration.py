@@ -1264,18 +1264,26 @@ def _tradeoff_svg(result: dict[str, Any]) -> str:
     values = [item[split]["summary"] for item in candidates for split in ("calibration", "holdout")]
     max_x = max([summary["false_valid"] for summary in values] + [1])
     max_y = max([summary["false_ambiguous"] + summary["false_invalid"] for summary in values] + [1])
-    width, height = 640, 360
-    left, top, plot_width, plot_height = 70, 35, 520, 260
+    width, height = 760, 400
+    left, top, plot_width, plot_height = 70, 50, 400, 260
     elements = [
-        '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360" role="img" aria-labelledby="title desc">',
+        '<svg xmlns="http://www.w3.org/2000/svg" width="760" height="400" viewBox="0 0 760 400" role="img" aria-labelledby="title desc">',
         '<title id="title">T-CMP-CAL-001 candidate tradeoff</title>',
         '<desc id="desc">False-valid versus unique-case rejection counts for calibration and holdout.</desc>',
-        '<rect width="640" height="360" fill="white"/>',
+        '<rect width="760" height="400" fill="white"/>',
         f'<line x1="{left}" y1="{top + plot_height}" x2="{left + plot_width}" y2="{top + plot_height}" stroke="#222"/>',
         f'<line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_height}" stroke="#222"/>',
-        '<text x="330" y="345" text-anchor="middle" font-family="sans-serif" font-size="13">false-valid (includes wrong-lag valid)</text>',
-        '<text x="18" y="170" text-anchor="middle" transform="rotate(-90 18 170)" font-family="sans-serif" font-size="13">unique rejected (ambiguous + invalid)</text>',
+        '<text x="270" y="365" text-anchor="middle" font-family="sans-serif" font-size="13">false-valid (includes wrong-lag valid)</text>',
+        '<text x="18" y="180" text-anchor="middle" transform="rotate(-90 18 180)" font-family="sans-serif" font-size="13">unique rejected (ambiguous + invalid)</text>',
     ]
+    for value in range(max_x + 1):
+        x = left + (value / max_x) * plot_width
+        elements.append(f'<line x1="{x:.2f}" y1="{top + plot_height}" x2="{x:.2f}" y2="{top + plot_height + 5}" stroke="#222"/>')
+        elements.append(f'<text x="{x:.2f}" y="{top + plot_height + 20}" text-anchor="middle" font-family="sans-serif" font-size="11">{value}</text>')
+    for value in range(max_y + 1):
+        y = top + plot_height - (value / max_y) * plot_height
+        elements.append(f'<line x1="{left - 5}" y1="{y:.2f}" x2="{left}" y2="{y:.2f}" stroke="#222"/>')
+        elements.append(f'<text x="{left - 10}" y="{y + 4:.2f}" text-anchor="end" font-family="sans-serif" font-size="11">{value}</text>')
     colors = {"calibration": "#2f6fbb", "holdout": "#d95f02"}
     for candidate_index, item in enumerate(candidates):
         for split_index, split in enumerate(("calibration", "holdout")):
@@ -1284,14 +1292,27 @@ def _tradeoff_svg(result: dict[str, Any]) -> str:
             y_value = summary["false_ambiguous"] + summary["false_invalid"]
             x = left + (x_value / max_x) * plot_width
             y = top + plot_height - (y_value / max_y) * plot_height
-            x += (split_index - 0.5) * 5
-            elements.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="6" fill="{colors[split]}"/>')
-            elements.append(
-                f'<text x="{x + 9:.2f}" y="{y - 7 + candidate_index * 12:.2f}" font-family="sans-serif" font-size="11">{item["operating_point"]["id"]} {split}</text>'
-            )
+            x += 7 if split_index else 0
+            y += (candidate_index - 1) * 8
+            elements.append(f'<circle cx="{x:.2f}" cy="{y:.2f}" r="8" fill="{colors[split]}" stroke="white" stroke-width="1"/>')
+            elements.append(f'<text x="{x:.2f}" y="{y + 4:.2f}" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="bold" fill="white">{chr(65 + candidate_index)}</text>')
     elements.extend([
-        '<rect x="430" y="8" width="12" height="12" fill="#2f6fbb"/><text x="448" y="19" font-family="sans-serif" font-size="11">calibration</text>',
-        '<rect x="520" y="8" width="12" height="12" fill="#d95f02"/><text x="538" y="19" font-family="sans-serif" font-size="11">holdout</text>',
+        '<text x="505" y="46" font-family="sans-serif" font-size="13" font-weight="bold">Legend: candidate / split</text>',
+        '<text x="505" y="64" font-family="sans-serif" font-size="11">values = false-valid, unique rejected</text>',
+        '<rect x="505" y="76" width="12" height="12" fill="#2f6fbb"/><text x="523" y="87" font-family="sans-serif" font-size="11">calibration</text>',
+        '<rect x="610" y="76" width="12" height="12" fill="#d95f02"/><text x="628" y="87" font-family="sans-serif" font-size="11">holdout</text>',
+    ])
+    for candidate_index, item in enumerate(candidates):
+        calibration = item["calibration"]["summary"]
+        holdout = item["holdout"]["summary"]
+        y = 122 + candidate_index * 72
+        label = item["operating_point"]["id"]
+        elements.extend([
+            f'<text x="505" y="{y}" font-family="sans-serif" font-size="12" font-weight="bold">{chr(65 + candidate_index)} — {label}</text>',
+            f'<text x="523" y="{y + 20}" font-family="sans-serif" font-size="11">calibration: {calibration["false_valid"]}, {calibration["false_ambiguous"] + calibration["false_invalid"]}</text>',
+            f'<text x="523" y="{y + 38}" font-family="sans-serif" font-size="11">holdout: {holdout["false_valid"]}, {holdout["false_ambiguous"] + holdout["false_invalid"]}</text>',
+        ])
+    elements.extend([
         '</svg>',
     ])
     return "\n".join(elements) + "\n"

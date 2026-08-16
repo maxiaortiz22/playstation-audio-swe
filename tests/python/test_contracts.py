@@ -199,7 +199,7 @@ def test_t_sys_003_sys_exe_007_rejects_unknown_authoring_fields(mutation: str) -
 
 def test_t_sys_003_sys_exe_007_allows_declared_parameter_extension_points() -> None:
     manifest = _document(VALID_MANIFEST)
-    manifest["stimulus"]["parameters"]["future_generator_parameter"] = {
+    manifest["sut"]["parameters"]["future_component_parameter"] = {
         "nested": [1, "two", True]
     }
     validate_document(manifest, contract="manifest")
@@ -225,7 +225,12 @@ def test_t_sys_003_sys_exe_006_and_007_manifest_round_trip() -> None:
 
 
 def test_t_rpt_001_rpt_schema_001_uses_draft_2020_12_and_versioned_files() -> None:
-    for schema_name in ("manifest.schema.json", "result.schema.json"):
+    for schema_name in (
+        "baseline.schema.json",
+        "manifest.schema.json",
+        "result.schema.json",
+        "stimulus-metadata.schema.json",
+    ):
         schema = _document(ROOT / "schemas" / "v1" / schema_name)
         assert schema["$schema"] == "https://json-schema.org/draft/2020-12/schema"
         Draft202012Validator.check_schema(schema)

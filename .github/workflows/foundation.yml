@@ -131,7 +131,7 @@ jobs:
           build/smoke-venv/bin/python -m pip install --no-deps dist/*.whl
           smoke_dir="$(mktemp -d)"
           cd "$smoke_dir"
-          "$GITHUB_WORKSPACE/build/smoke-venv/bin/python" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+          "$GITHUB_WORKSPACE/build/smoke-venv/bin/python" -c "import avsys, numpy; from avsys.stimuli import canonical_pcm_bytes; assert avsys.native_version() == avsys.__version__; assert numpy.__version__ == '2.4.6'"
       - name: Build wheel (Windows)
         if: runner.os == 'Windows'
         shell: cmd
@@ -150,7 +150,7 @@ jobs:
           build/smoke-venv/Scripts/python.exe -m pip install --no-deps $wheel
           $smoke = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP 'avsys-smoke') -Force
           Push-Location $smoke.FullName
-          & "$env:GITHUB_WORKSPACE/build/smoke-venv/Scripts/python.exe" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+          & "$env:GITHUB_WORKSPACE/build/smoke-venv/Scripts/python.exe" -c "import avsys, numpy; from avsys.stimuli import canonical_pcm_bytes; assert avsys.native_version() == avsys.__version__; assert numpy.__version__ == '2.4.6'"
           Pop-Location
 
   sanitizers:

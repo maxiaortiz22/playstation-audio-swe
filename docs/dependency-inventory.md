@@ -14,13 +14,14 @@ archive checksums and immutable action revisions are in
 | pybind11 | v3.1.0 / `97bf890db679505a14dfe547a5e77bb2bd05dc90` | `https://github.com/pybind/pybind11.git` submodule | BSD-3-Clause | Minimal coarse native/Python linkage boundary |
 | GoogleTest | v1.17.0 / `52eb8108c5bdec04579160ae17225d66034bd723` | `https://github.com/google/googletest.git` submodule | BSD-3-Clause | Native unit-test runner; no configure-time download |
 | jsonschema | 4.26.0 | PyPI | MIT | Draft 2020-12 validation and path-rich diagnostics |
+| NumPy | 2.4.6 | PyPI | BSD-3-Clause | Canonical float32 `(frames, channels)` buffers, finite/range checks, and explicit copies; random and transcendental APIs do not define golden PCM |
 | scikit-build-core | 1.0.3 | PyPI | Apache-2.0 | PEP 517 CMake wheel backend |
 | build | 1.5.0 | PyPI | MIT | Non-isolated wheel frontend after locked installation |
 | wheel | 0.47.0 | PyPI | MIT | Wheel command/tooling used by the build environment |
 | pytest | 9.1.1 | PyPI | MIT | Python/schema and installed-wheel integration tests |
 
-NumPy, SciPy, Jinja2, and Matplotlib remain accepted M1 dependencies but are
-not introduced by this slice because no implemented behavior uses them.
+SciPy, Jinja2, and Matplotlib remain accepted M1 dependencies but are not
+introduced by this slice because no implemented behavior uses them.
 
 ## Locked Python transitives
 

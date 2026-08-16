@@ -62,6 +62,12 @@ runtime package dependencies. The implementation PR that introduces each
 dependency records its exact version, license, source, lock hash, and why the
 standard library or an existing dependency was insufficient.
 
+The deterministic-stimulus slice introduces NumPy 2.4.6, the newest version
+with published wheels covering every selected CPython 3.11-3.13 Linux row and
+the CPython 3.12 Windows row when the slice was implemented. Its reviewed wheel
+hashes are recorded in both Python locks. NumPy owns canonical float32 array
+representation only; no random or transcendental API defines golden PCM.
+
 PyYAML, libsndfile, FFTW, Plotly, and an external resampler library are not M1
 dependencies. Adding one requires a specification or ADR amendment.
 

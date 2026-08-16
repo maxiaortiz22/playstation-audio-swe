@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Owners:** Developer experience and automation subsystem
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-15
+- **Last updated:** 2026-08-16
 - **Target milestone:** M1 - End-to-end regression demonstration
 - **Depends on:** SPEC-000, ADR-0003, ADR-0004, ADR-0006
 
@@ -169,6 +169,28 @@ accessibility markers, and links rather than relying on pixel-identical plots.
 - **POL-BASE-004:** A missing required baseline SHALL produce an invalid run rather than treating the candidate as its own baseline.
 - **POL-BASE-005:** Expected feature changes SHOULD create a new baseline generation while retaining prior provenance.
 
+An approved M1 baseline uses `schemas/v1/baseline.schema.json`. Its descriptor
+binds a stable baseline ID and generation number to the test ID, exact
+manifest/schema identity, SUT configuration, environment class, generated
+stimulus metadata, canonical PCM format/shape/digest, and an approval record.
+The approval record has explicit reviewer, rationale, and timestamp fields.
+
+Baseline creation and replacement are separate privileged operations from
+stimulus generation and future validation. Creation fails if a descriptor
+already exists; replacement fails if it does not. Neither operation accepts a
+blank rationale. Replacement increments the generation, retains each prior
+PCM object, and appends the prior generation's descriptor digest, PCM digest,
+and approval provenance. The normal load/preparation API is read-only and has
+no baseline-writing operation.
+
+Loading verifies the strict descriptor, safe relative PCM path, byte count,
+shape, and SHA-256 before exposing an immutable little-endian float32 array.
+Missing, malformed, truncated, or digest-mismatched input yields a structured
+`invalid_input` baseline outcome. That outcome contains no baseline buffer and
+must never substitute the candidate. This slice supplies the structured
+boundary for `POL-BASE-004`; propagation into the future complete runner and
+result/report schemas remains pending evidence.
+
 ### CI behavior
 
 - **CI-RUN-001:** Local and CI execution SHALL invoke the same test runner and manifests.
@@ -252,3 +274,4 @@ or amend the contract rather than silently promoting warnings.
 |---|---|---|
 | 2026-08-14 | Initial diagnostics/policy/CI contract | New specification |
 | 2026-08-15 | Resolve JSON, dual-status, HTML, warning, artifact, exit-code, and traceability decisions; accept contract | Compatible clarification |
+| 2026-08-16 | Fix the approved-baseline descriptor, explicit create/replace lifecycle, retained provenance, digest verification, and structured invalid-input boundary | Compatible clarification |

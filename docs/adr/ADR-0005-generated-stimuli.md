@@ -23,6 +23,26 @@ integer PRBS. Signals that depend on transcendental library implementations are
 compared through documented metric tolerances rather than cross-platform PCM
 hash equality.
 
+M1 generator catalog version `1` consists only of `constant`, `impulse`,
+`channel-identification`, and `prbs15`. SPEC-000 owns their exact parameters,
+channel semantics, seed domains, and the PRBS15 integer recurrence. A generator
+rejects unknown parameters, non-finite numbers, invalid channel/frame indices,
+and values outside full scale; it never clips. There is no system RNG,
+`numpy.random`, transcendental function, or normative WAV input in these
+constructions.
+
+The canonical generated buffer is a C-contiguous NumPy float32 array shaped
+`(frames, channels)`. Its SHA-256 input is the row-major sample sequence encoded
+as headerless little-endian IEEE 754 binary32. The returned reference array is
+backed by immutable bytes so callers cannot re-enable writes; future candidate
+processing must request an explicit copy.
+
+Generation, baseline approval, and validation are separate capabilities.
+Generation only returns/writes a stimulus artifact package. Explicit baseline
+creation or replacement records rationale and provenance under SPEC-004; the
+future validation runner receives approved baselines through a read-only,
+digest-verifying boundary.
+
 M1 does not commit normative input WAV fixtures. WAV files may be generated as
 diagnostic artifacts or temporary I/O test outputs. Any quantization or format
 conversion applied for listening is recorded and never replaces the float32

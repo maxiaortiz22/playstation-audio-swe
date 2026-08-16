@@ -1,4 +1,5 @@
-# Complete build/test lock. Runtime transitives are included from runtime.lock.
+# Complete build/test lock. Runtime dependencies, including all reviewed
+# NumPy 2.4.6 platform-wheel hashes, are included from runtime.lock.
 # Install with: python -m pip install --require-hashes -r requirements/build-test.lock
 -r runtime.lock
 

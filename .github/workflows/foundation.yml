@@ -156,6 +156,12 @@ jobs:
           & "$env:GITHUB_WORKSPACE/build/smoke-venv/Scripts/python.exe" -c "import avsys, numpy; from avsys.stimuli import canonical_pcm_bytes; assert avsys.native_version() == avsys.__version__; assert numpy.__version__ == '2.4.6'"
           & "$env:GITHUB_WORKSPACE/build/smoke-venv/Scripts/python.exe" -m pytest "$env:GITHUB_WORKSPACE/tests/integration"
           Pop-Location
+      - name: Run focused DEMO-3 installed-wheel E2E
+        if: runner.os == 'Linux' && matrix.compiler_family == 'gcc13'
+        run: |
+          smoke_dir="$(mktemp -d)"
+          cd "$smoke_dir"
+          "$GITHUB_WORKSPACE/build/smoke-venv/bin/python" -m pytest "$GITHUB_WORKSPACE/tests/e2e/test_demo3_installed_wheel.py"
 
   sanitizers:
     name: Sanitizers / Linux Clang 18 ASan+UBSan

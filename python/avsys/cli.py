@@ -5,12 +5,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import sys
 from typing import Sequence
 
+from .analysis import AlignmentPolicyError, AnalysisInputError
 from .artifacts import write_stimulus_package
 from .baselines import create_approved_baseline, replace_approved_baseline
-from .contracts import load_contract
-from .stimuli import generate_stimulus
+from .contracts import ContractError, load_contract
+from .faults import FaultParameterError
+from .stimuli import StimulusGenerationError, generate_stimulus
+from .workflow import DemoInputError, run_workflow
 
 
 def _approval_arguments(parser: argparse.ArgumentParser) -> None:
@@ -28,6 +32,9 @@ def _parser() -> argparse.ArgumentParser:
     generate = commands.add_parser("generate", help="write a deterministic stimulus package")
     generate.add_argument("--manifest", required=True, type=Path)
     generate.add_argument("--output", required=True, type=Path)
+    run = commands.add_parser("run", help="execute the focused DEMO-3 workflow")
+    run.add_argument("--manifest", required=True, type=Path)
+    run.add_argument("--output", required=True, type=Path)
     create = commands.add_parser("baseline-create", help="explicitly approve generation one")
     _approval_arguments(create)
     create.add_argument("--baseline-id", required=True)
@@ -38,6 +45,36 @@ def _parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "run":
+        try:
+            outcome = run_workflow(args.manifest, args.output)
+        except (
+            AlignmentPolicyError,
+            AnalysisInputError,
+            ContractError,
+            DemoInputError,
+            FaultParameterError,
+            FileNotFoundError,
+            StimulusGenerationError,
+        ) as error:
+            print(f"avsys: invalid input or measurement: {error}", file=sys.stderr)
+            return 2
+        except Exception as error:  # runner/reporting failures retain exit meaning 3
+            print(f"avsys: internal runner/reporting error: {error}", file=sys.stderr)
+            return 3
+        print(
+            json.dumps(
+                {
+                    "output_directory": str(Path(args.output)),
+                    "report": str(outcome.report_path),
+                    "result": str(outcome.result_path),
+                    "run_status": outcome.result["run_status"],
+                },
+                sort_keys=True,
+            )
+        )
+        return outcome.exit_code
+
     if args.command == "generate":
         package = write_stimulus_package(args.manifest, args.output)
         print(

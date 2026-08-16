@@ -125,6 +125,19 @@ Statistical policies are extended by SPEC-006.
 
 ### Result schema
 
+Deterministic offline fixture manifests MAY request byte-reproducible result
+identity by declaring an explicit RFC 3339 timestamp in the parameters of the
+selected versioned SUT. In that mode, `run_id` is derived from the exact
+manifest digest, both required timestamps use the declared value, and the
+result records `timestamps.basis = manifest_declared_fixture` plus
+`timestamps.wall_clock_recorded = false`. Reports SHALL label that value as a
+logical fixture timestamp rather than elapsed or wall-clock evidence. This mode
+is limited to deterministic fixture/demo execution; a runner SHALL NOT invent a
+fixed timestamp or silently replace wall-clock timing for an execution that did
+not request it. Equivalent runs in this mode serialize byte-identical JSON when
+their manifest, deterministic SUT, source/dependency provenance, and result
+schema are unchanged.
+
 - **RPT-SCHEMA-001:** Machine-readable results SHALL use a versioned JSON schema.
 - **RPT-SCHEMA-002:** Every run SHALL include run ID, timestamps, test ID, manifest digest, source revision, dirty state, `validation_status`, `run_status`, and `completion_status` as separate fields.
 - **RPT-SCHEMA-003:** Metrics SHALL store numerical value separately from unit, validity, method/version, and scope.
@@ -206,11 +219,21 @@ result/report schemas remains pending evidence.
 
 ### Artifact policy
 
+Publishing a mandatory artifact package is transactional at the runner output
+boundary. A runner stages and validates the complete mandatory package before
+making it visible at the requested output path. When that path already contains
+a complete package, a failure before publication leaves the prior package
+unchanged; staged files from the failed attempt are not exposed or combined
+with it. A successful reuse replaces the prior package as one publication. The
+process exit and diagnostics identify the attempted run; an unchanged prior
+package is not represented as output from a failed attempt.
+
 - **RPT-ART-001:** M1 CI SHALL invoke JSON/HTML generation and upload for every run regardless of validation exit status; hosting retention and size limits SHALL be explicit validated workflow configuration. Generation failures SHALL follow the dual-status model, while later upload failures SHALL be represented by the CI adapter job/log without mutating the frozen result JSON.
 - **RPT-ART-002:** Failure-context WAV and plots SHALL be retained for failure/invalid runs.
 - **RPT-ART-003:** Large raw captures MAY use a size threshold and explicit retention policy.
 - **RPT-ART-004:** Artifact truncation or omission SHALL be recorded with reason and original size estimate.
 - **RPT-ART-005:** Generated artifacts SHALL be written outside source-controlled directories by default.
+- **RPT-ART-006:** A runner SHALL validate every mandatory artifact before publishing any part of that run. Reusing an output path SHALL either publish the new complete package or retain the prior complete package unchanged; a failed attempt SHALL NOT expose a mixed package or claim the retained package as its result.
 
 ## Proposed process exit codes
 
@@ -257,7 +280,7 @@ This order prevents an attractive plot from obscuring a structural defect.
 | `T-RPT-003` | `RPT-REP-001`, `RPT-REP-002`, `RPT-REP-003`, `RPT-REP-004`, `RPT-REP-005` | Package a reproducible run and inject secret-like non-allowlisted environment values | Working structured/display command, safe provenance, no secret serialization |
 | `T-BASE-001` | `POL-BASE-001`, `POL-BASE-002`, `POL-BASE-003`, `POL-BASE-004`, `POL-BASE-005` | Validate with missing and intentionally changed baseline | Invalid or explicit workflow; no silent update |
 | `T-CI-001` | `CI-RUN-001`, `CI-RUN-002`, `CI-RUN-003`, `CI-RUN-004`, `CI-RUN-005`, `CI-RUN-006`, `CI-RUN-007`, `CI-RUN-008`, `CI-RUN-009`, `CI-RUN-010` | Force pass/warning/fail/invalid/internal outcomes, retry, sanitizer, and artifact steps | Correct visible jobs, stable exit codes, first-result preservation, and always-attempted evidence |
-| `T-ART-001` | `RPT-ART-001`, `RPT-ART-002`, `RPT-ART-003`, `RPT-ART-004`, `RPT-ART-005` | Exceed configured artifact size and force optional/mandatory generation failures | Declared omission or artifact error; validation status and partial evidence preserved |
+| `T-ART-001` | `RPT-ART-001`, `RPT-ART-002`, `RPT-ART-003`, `RPT-ART-004`, `RPT-ART-005`, `RPT-ART-006` | Exceed configured artifact size, force optional/mandatory generation failures, and fail a second run before publishing to a reused output path | Declared omission or artifact error; validation status preserved; no mixed or falsely attributed package |
 
 ## Open questions
 
@@ -275,3 +298,5 @@ or amend the contract rather than silently promoting warnings.
 | 2026-08-14 | Initial diagnostics/policy/CI contract | New specification |
 | 2026-08-15 | Resolve JSON, dual-status, HTML, warning, artifact, exit-code, and traceability decisions; accept contract | Compatible clarification |
 | 2026-08-16 | Fix the approved-baseline descriptor, explicit create/replace lifecycle, retained provenance, digest verification, and structured invalid-input boundary | Compatible clarification |
+| 2026-08-16 | Define explicit manifest-declared logical timestamps and content-addressed run identity for byte-reproducible deterministic fixture results | Compatible clarification |
+| 2026-08-16 | Define transactional mandatory-package publication and reused-output failure semantics | Compatible clarification |

@@ -14,14 +14,17 @@ archive checksums and immutable action revisions are in
 | pybind11 | v3.1.0 / `97bf890db679505a14dfe547a5e77bb2bd05dc90` | `https://github.com/pybind/pybind11.git` submodule | BSD-3-Clause | Minimal coarse native/Python linkage boundary |
 | GoogleTest | v1.17.0 / `52eb8108c5bdec04579160ae17225d66034bd723` | `https://github.com/google/googletest.git` submodule | BSD-3-Clause | Native unit-test runner; no configure-time download |
 | jsonschema | 4.26.0 | PyPI | MIT | Draft 2020-12 validation and path-rich diagnostics |
+| Jinja2 | 3.1.6 | PyPI | BSD-3-Clause | Autoescaped, deterministic, self-contained DEMO-3 HTML report rendering required by SPEC-004 |
 | NumPy | 2.4.6 | PyPI | BSD-3-Clause | Canonical float32 `(frames, channels)` buffers, finite/range checks, and explicit copies; random and transcendental APIs do not define golden PCM |
 | scikit-build-core | 1.0.3 | PyPI | Apache-2.0 | PEP 517 CMake wheel backend |
 | build | 1.5.0 | PyPI | MIT | Non-isolated wheel frontend after locked installation |
 | wheel | 0.47.0 | PyPI | MIT | Wheel command/tooling used by the build environment |
 | pytest | 9.1.1 | PyPI | MIT | Python/schema and installed-wheel integration tests |
 
-SciPy, Jinja2, and Matplotlib remain accepted M1 dependencies but are not
-introduced by this slice because no implemented behavior uses them.
+SciPy and Matplotlib remain accepted M1 dependencies but are not introduced by
+this slice because DEMO-3 reuses the implemented NumPy analysis and produces no
+plots or spectral evidence. Jinja2 is introduced only for the SPEC-004 HTML
+contract; no web framework or network resource is added.
 
 ## Locked Python transitives
 
@@ -32,6 +35,7 @@ introduced by this slice because no implemented behavior uses them.
 | referencing | 0.37.0 | MIT | jsonschema |
 | rpds-py | 2026.6.3 | MIT | referencing/jsonschema |
 | typing-extensions | 4.16.0 | PSF-2.0 | referencing |
+| MarkupSafe | 3.0.3 | BSD-3-Clause | Jinja2 autoescaping |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | scikit-build-core/build/pytest |
 | pathspec | 1.1.1 | MPL-2.0 | scikit-build-core |
 | pyproject-hooks | 1.2.0 | MIT | build |

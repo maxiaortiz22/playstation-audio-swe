@@ -283,6 +283,13 @@ no automatic selection, silent fallback, or universal default.
 
 ### Localized anomaly detection
 
+For the deterministic M1 dropout rule, a serialized event confidence of `1.0`
+means that every manifest-declared active-reference, near-silence, and minimum-
+duration condition matched throughout the reported interval. It is a
+deterministic rule-match indicator, not an estimated probability. A future
+scored detector requires its own method, scale, and calibration contract rather
+than reinterpreting this value.
+
 - **CMP-EVT-001:** Click detection SHALL combine a time-local discontinuity feature with stimulus-aware context or aligned residual evidence and SHALL declare derivative/context windows, threshold units, and boundary handling in the manifest.
 - **CMP-EVT-002:** Dropout detection SHALL report start, end, duration, channel set, and whether the region contains exact zeros or near-silence using manifest-declared active-reference floor, near-silence floor, and minimum duration.
 - **CMP-EVT-003:** Repeated-block detection SHALL declare candidate block lengths, comparison tolerance, minimum repeats, and validity/confidence rule before identifying block length and repetition interval.
@@ -395,3 +402,4 @@ requirement evidence remain necessary before this specification can become
 | 2026-08-14 | Initial comparator contract | New specification |
 | 2026-08-15 | Define integer correlation/overlap, defer fractional gating, select spectral bands and drift tiers, and expose calibration blocker | Compatible clarification |
 | 2026-08-15 | Record the explicit M1-only `OP-B-intermediate` decision, accepted holdout budget, and residual short-overlap limitation; accept contract | Compatible policy decision |
+| 2026-08-16 | Define deterministic dropout event confidence as a rule-match indicator rather than a probability | Compatible clarification |

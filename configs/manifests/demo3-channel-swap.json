@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "test": { "id": "demo3.channel-swap", "purpose": "DEMO-3 stereo channel mapping failure", "owner": "repository-maintainers" },
+  "stimulus": { "generator": { "id": "prbs15", "version": "1" }, "seed": 4660, "parameters": { "amplitude": 0.25 } },
+  "audio_format": { "sample_rate_hz": 48000, "sample_format": "float32", "frame_count": 1024, "layout": "frames_channels_interleaved" },
+  "channel_map": [{ "index": 0, "id": "left" }, { "index": 1, "id": "right" }],
+  "block_sizes_frames": [127],
+  "sut": { "id": "native_passthrough", "version": "1", "parameters": { "result_timestamp_utc": "2026-08-16T00:00:00Z" } },
+  "faults": [{ "id": "swap-stereo", "label": "candidate stereo channels exchanged", "type": "stereo_channel_swap", "parameters": {} }],
+  "permitted_transforms": [{ "name": "integer_time_alignment", "parameters": { "enabled": true, "affected_metrics": ["residual_peak_linear_fs", "gain_delta_db", "polarity", "dropout_event_count"] } }],
+  "metrics": [
+    {
+      "id": "latency_frames", "method": "normalized-cross-correlation", "version": "1", "unit": "frames", "scope": { "kind": "aggregate", "parameters": {} },
+      "parameters": {
+        "search_min_lag_frames": -32, "search_max_lag_frames": 32, "sync_method": "mean_all_channels", "remove_dc_from_sync": false,
+        "rationale": "The swap-invariant mean downmix preserves the raw time origin without hiding channel mapping.",
+        "operating_point": {
+          "id": "OP-B-intermediate", "decision_id": "M1-ALIGNMENT-OP-001", "decision_version": "1.0.0", "scope": "m1-manifest-policy-only",
+          "source_sha256": "67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab", "selected_operating_point_digest": "04303b903773ea2f772dfe7998c53ad4916b27824ea42335ce178d1f2879db52",
+          "plateau_epsilon": 0.00001, "maximum_primary_plateau_width_frames": 2, "secondary_exclusion_radius_frames": 4, "minimum_primary_abs_correlation": 0.5,
+          "minimum_accepted_peak_ratio": 1.1, "sync_rms_floor_linear_fs": 0.00001, "minimum_overlap_frames": 64
+        }
+      }
+    },
+    { "id": "residual_peak_linear_fs", "method": "aligned-absolute-residual", "version": "1", "unit": "linear_FS", "scope": { "kind": "aggregate", "parameters": {} }, "parameters": { "rms_floor_linear_fs": 0.000000000001, "rationale": "A 1e-12 linear FS floor keeps exact-null residual dBFS finite." } },
+    { "id": "gain_delta_db", "method": "aligned-rms-ratio", "version": "1", "unit": "dB", "scope": { "kind": "aggregate", "parameters": {} }, "parameters": { "rms_floor_linear_fs": 0.000000001, "rationale": "The gain floor is far below the 0.25 FS deterministic stimulus." } },
+    { "id": "polarity", "method": "signed-normalized-correlation", "version": "1", "unit": "categorical", "scope": { "kind": "aggregate", "parameters": {} }, "parameters": { "signal_rms_floor_linear_fs": 0.00001, "minimum_abs_correlation": 0.99, "rationale": "The active PRBS signal supports exact identity or inversion at 0.99 correlation." } },
+    { "id": "channel_mapping", "method": "stereo-permutation-correlation", "version": "1", "unit": "channel_mapping", "scope": { "kind": "aggregate", "parameters": {} }, "parameters": { "minimum_mapping_margin": 0.25, "signal_rms_floor_linear_fs": 0.00001, "rationale": "Independent PRBS channels produce a permutation margin well above 0.25." } },
+    { "id": "dropout_event_count", "method": "active-reference-near-silence-intervals", "version": "1", "unit": "count", "scope": { "kind": "aggregate", "parameters": {} }, "parameters": { "active_reference_floor_linear_fs": 0.1, "near_silence_floor_linear_fs": 0.000001, "minimum_duration_frames": 16, "rationale": "The floors separate 0.25 FS PRBS activity from the explicit zero dropout." } }
+  ],
+  "policies": [{
+    "id": "channel-mapping-identity", "requirement_ids": ["CMP-CH-002", "SYS-DIAG-001"], "metric_id": "channel_mapping", "expected_unit": "channel_mapping",
+    "scope": { "kind": "aggregate", "parameters": {} }, "operator": "exact_match", "threshold": "(0, 1)", "directionality": "exact", "severity": "fail", "mandatory": true,
+    "minimum_valid_observations": 1, "rationale": "Observed stereo channels must retain identity mapping; the injected candidate maps as (1, 0).", "owner": "repository-maintainers",
+    "baseline_reference": null, "preprocessing_dependencies": [], "compensation_dependencies": ["integer_time_alignment"]
+  }],
+  "artifact_policy": { "output_directory": ".", "retain_on": ["pass", "fail", "invalid", "internal_error"] },
+  "execution_tier": "fast"
+}

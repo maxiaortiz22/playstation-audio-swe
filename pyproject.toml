@@ -9,7 +9,7 @@ description = "Reproducible foundation for the Audio Validation Systems Lab"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 authors = [{ name = "Audio Validation Systems Lab maintainers" }]
-dependencies = ["jsonschema==4.26.0", "numpy==2.4.6"]
+dependencies = ["Jinja2==3.1.6", "jsonschema==4.26.0", "numpy==2.4.6"]
 
 [project.scripts]
 avsys = "avsys.cli:main"

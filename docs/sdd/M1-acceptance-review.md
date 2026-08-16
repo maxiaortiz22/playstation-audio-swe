@@ -1,27 +1,29 @@
 # Milestone 1 contract acceptance review
 
 - **Review date:** 2026-08-15
+- **Phase B update:** 2026-08-15
 - **Scope:** SPEC-000 through SPEC-004
-- **Implementation produced:** None
-- **Branch:** `codex/m1-contract-acceptance`
+- **Original review implementation:** None
+- **Decision branch:** `codex/m1-alignment-operating-point`
 
 ## Outcome
 
-This review accepts the stable system, real-time transport, and diagnostics
-contracts while preserving two honest blockers. Production work may begin only
-against specifications marked `Accepted`; the complete M1 end-to-end runner is
-blocked until SPEC-001 and the M1 slice of SPEC-003 are accepted.
+This review accepts the stable system, comparator, real-time transport, and
+diagnostics contracts while preserving the remaining filter blocker.
+Production work may begin only against specifications marked `Accepted`; the
+complete M1 end-to-end runner remains blocked until the M1 slice of SPEC-003 is
+accepted.
 
 | Specification | Disposition | Reason |
 |---|---|---|
 | SPEC-000 | Accepted | Format, stimulus, toolchain, dependency, and M1 tier decisions are closed. |
-| SPEC-001 | Review | Exact correlation/overlap semantics are proposed, but the ambiguity operating point still needs calibration and owner approval. |
+| SPEC-001 | Accepted | Exact correlation/overlap semantics are fixed; the owner selected frozen `OP-B-intermediate` for M1 after unchanged holdout met the approved budget. |
 | SPEC-002 | Accepted | Inline capture, telemetry, overflow, alignment fallback, TSan platform, and test mapping are closed. |
 | SPEC-003 | Review | The M1 biquad equations are proposed, but its tail-bound/numerical-envelope spike and combined-spec governance remain open; resampler work is explicitly M2. |
 | SPEC-004 | Accepted | JSON policy, dual status, Jinja2/static reporting, warnings, artifacts, and CI behavior are closed. |
 
-No status is `Verified`: the repository contains no production implementation,
-build entry point, schema, test runner, or CI workflow yet.
+No specification is `Verified`. In particular, the calibration runner is not a
+production comparator and does not supply full production requirement evidence.
 
 ## Decision record
 
@@ -32,7 +34,7 @@ build entry point, schema, test runner, or CI workflow yet.
 | Compiler/platform/Python matrix | One host; full cross product; bounded matrix | Windows/MSVC and Linux/GCC+Clang; Python 3.11-3.13 | Covers ABI and compiler diversity without matrix theater. CI evidence is still pending. See ADR-0006. |
 | Fractional delay | Parabolic interpolation; phase/GCC; defer | Integer-only M1 policy; fractional estimation deferred | Avoids claiming unvalidated sub-frame precision. A comparative estimator spike is M2 work. |
 | Spectral aggregation | Linear fixed bands; octave bands; arbitrary bands | Explicit arbitrary `[low_hz, high_hz)` bands | Manifest-owned bands fit test intent; aggregate linear power before dB and retain per-channel/band evidence. |
-| Correlation ambiguity | Universal ratio; per-test guess; calibrated operating point | Calibrated per stimulus class, no default | SPEC-001 remains Review until the deterministic calibration/holdout experiment and human risk selection complete. |
+| Correlation ambiguity | Universal ratio; per-test guess; calibrated operating point | `OP-B-intermediate` for the M1 manifest/policy only; no default | The explicit owner decision preserves zero false-valid, wrong-lag valid, and false-ambiguous on unchanged holdout with one documented short-overlap false-invalid. |
 | Drift execution tier | Every PR end-to-end; extended only; split | Fast algebra/validity unit cases plus extended long sweep | Preserves fast deterministic feedback without inventing a universal runtime or ppm tolerance. |
 | SPSC capture/telemetry | Combined packet; pool indices; separate inline queues | Separate typed inline queues | Simpler ownership; audio and telemetry loss remain distinguishable. Benchmark before any pool redesign. See ADR-0007. |
 | False-sharing fallback | Standard constant only; unconditional 64; validated fallback | Standard value when valid, 64 bytes for M1 x86_64 fallback, explicit override otherwise | Avoids a silent architecture-wide claim and records the selected layout value. |
@@ -83,7 +85,7 @@ flowchart TD
     B --> E["Deterministic stimuli and fault labels"]
     D --> F["Captured PCM and telemetry"]
     E --> F
-    G["Correlation ambiguity calibration"] --> H["Accept SPEC-001"]
+    G["Correlation ambiguity calibration complete"] --> H["SPEC-001 Accepted"]
     F --> I["Comparator and metrics"]
     H --> I
     B --> J["Policy and result model"]
@@ -128,7 +130,6 @@ machine-readable traceability must enumerate every ID rather than store ranges.
 
 | Item | Why automation cannot decide it | Blocking effect |
 |---|---|---|
-| Correlation ambiguity error budget | The calibration spike can show false-valid versus false-ambiguous tradeoffs, but the owner must choose the acceptable product risk. | Blocks SPEC-001 acceptance and comparator production work. |
 | SPEC-003 acceptance structure | The maintainer must approve the filter calibration evidence and choose whether the unchanged `SRC-*` contract stays combined or moves to a dedicated specification. | Blocks SPEC-003 and production filter work; general resampler conformance remains M2 either way. |
 | Dependency/license approval | Technical fit is documented, but repository maintainers own supply-chain and license acceptance. | Blocks the packaging PR that introduces each dependency. |
 | Hosted artifact retention and size limits | Available values depend on the actual GitHub plan and repository policy. | Blocks final workflow configuration, not SPEC-004 semantics. |
@@ -138,7 +139,11 @@ After implementation evidence exists, maintainers must also decide whether an
 explicit cancellation wall-clock SLO or controlled-runner performance guardrail
 is valuable. Neither number is invented by this contract review.
 
-## Calibration gate for SPEC-001
+The correlation ambiguity decision is no longer open: on 2026-08-15 the owner
+selected `OP-B-intermediate` from the frozen candidate set. Automation only
+verifies that recorded decision; it does not choose or fall back to a candidate.
+
+## Completed calibration gate for SPEC-001
 
 The blocking spike uses a versioned deterministic corpus spanning broadband,
 PRBS/chirp, harmonic/periodic, repeated-block, transient, silence, and
@@ -151,11 +156,21 @@ main-peak exclusion neighborhood, plateau/tie rule, and minimum overlap. It
 then reports false-valid and false-ambiguous outcomes across candidate
 operating points. Calibration and holdout seeds/families are disjoint. The
 chosen M1 manifest value, error-budget rationale, raw observations, source
-revision, and environment become review artifacts.
+revision, and environment are review artifacts.
 
-SPEC-001 may move to `Accepted` only after the owner approves that operating
-point and the holdout corpus meets the approved error budget. No result from
-this review supplies a universal correlation threshold.
+The owner selected `OP-B-intermediate` and froze `plateau_epsilon=1e-5`, maximum
+primary plateau width `2` frames, secondary exclusion radius `4` frames,
+minimum primary absolute correlation `0.50`, minimum accepted peak ratio
+`1.10`, sync RMS floor `1e-5` linear FS, and minimum overlap `64` frames. The
+unchanged deterministic holdout rerun has false-valid `0`, wrong-lag valid `0`,
+false-ambiguous `0`, and false-invalid `1`.
+
+The accepted false-invalid is `holdout-rademacher-noise-v1-10`: its 48-frame
+sync region cannot satisfy the selected 64-frame minimum overlap. This explicit
+limitation is retained rather than weakening the overlap rule. The decision is
+M1-manifest/policy data only and supplies no universal correlation threshold.
+With this owner approval and passing budget, SPEC-001 is `Accepted`, not
+`Verified`.
 
 ## Calibration gate for the SPEC-003 M1 filter slice
 

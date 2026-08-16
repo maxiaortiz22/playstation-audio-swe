@@ -1,6 +1,6 @@
 # SPEC-001: Aligned audio regression comparator
 
-- **Status:** Review
+- **Status:** Accepted
 - **Owners:** Audio analysis subsystem
 - **Created:** 2026-08-14
 - **Last updated:** 2026-08-15
@@ -202,12 +202,36 @@ frames, and exclusion radius is a non-negative integer smaller than the lag
 search span. Search bounds and sync-region origins are integer frames. Invalid
 domains fail manifest validation rather than enter the estimator.
 
-No repository-wide numeric default is accepted. Before SPEC-001 can become
-`Accepted`, `T-CMP-CAL-001` must run the deterministic calibration and holdout
-protocol in the [M1 acceptance review](../sdd/M1-acceptance-review.md). The
-reviewed M1 manifest selects an operating point from false-valid versus
-false-ambiguous evidence; holdout families and seeds are disjoint from tuning
-data.
+No repository-wide numeric default is accepted. `T-CMP-CAL-001` completed the
+deterministic calibration and disjoint holdout protocol in the
+[M1 acceptance review](../sdd/M1-acceptance-review.md). On 2026-08-15, the
+repository owner explicitly selected frozen candidate `OP-B-intermediate` for
+the M1 manifest/policy only:
+
+| Parameter | Selected value | Unit |
+|---|---:|---|
+| `plateau_epsilon` | `1e-5` | absolute unitless score difference |
+| `maximum_primary_plateau_width_frames` | `2` | frames |
+| `secondary_exclusion_radius_frames` | `4` | frames |
+| `minimum_primary_abs_correlation` | `0.50` | unitless |
+| `minimum_accepted_peak_ratio` | `1.10` | unitless |
+| `sync_rms_floor_linear_fs` | `1e-5` | linear FS RMS |
+| `minimum_overlap_frames` | `64` | frames |
+
+The selected holdout result has zero false-valid, zero wrong-lag valid, zero
+false-ambiguous, and one accepted false-invalid. The remaining false-invalid is
+`holdout-rademacher-noise-v1-10`: its 48-frame synchronization region cannot
+satisfy `minimum_overlap_frames=64`, so `invalid` with
+`no_lag_passed_energy_and_overlap` is the retained limitation. `OP-A-permissive`
+was rejected after accepting lag 8 for oracle lag 41. `OP-C-conservative`
+provided no additional observed safety and caused a second false-invalid by
+rejecting a valid `0.0005` FS case under its `0.001` FS RMS floor.
+
+The versioned decision is
+[`m1-alignment-operating-point.json`](../../configs/policies/m1-alignment-operating-point.json),
+and the rerun evidence is under
+[`docs/evidence/T-CMP-CAL-001/`](../evidence/T-CMP-CAL-001/README.md). There is
+no automatic selection, silent fallback, or universal default.
 
 ## Requirements
 
@@ -273,8 +297,9 @@ provide shared numerical defaults. These values are test-specific policy data,
 not a cross-test product default, so their later per-manifest calibration gates
 verification of that detector policy rather than acceptance of this measurement
 contract. The automatic alignment operating point is the exception because it
-controls whether downstream comparison may proceed and therefore remains the
-explicit SPEC-001 acceptance blocker.
+controls whether downstream comparison may proceed; its M1 policy is now
+explicitly selected above. Other detector-policy calibration remains a
+verification concern and does not turn these M1 values into shared defaults.
 
 ### Clock drift
 
@@ -355,12 +380,13 @@ Threshold values are deliberately not universal defaults. Test manifests own the
 
 ## Open questions
 
-- [ ] Execute `T-CMP-CAL-001`, record calibration and disjoint holdout evidence, and obtain owner approval for the M1 manifest's ambiguity operating point.
-
-Fractional gating is deferred to M2, spectral aggregation uses arbitrary
-manifest bands, detector configuration is explicit, and drift uses split
-fast/extended coverage. These decisions are closed. The ambiguity evidence item
-above keeps this specification in `Review`.
+No open question blocks acceptance. `T-CMP-CAL-001` recorded calibration and
+unchanged holdout evidence, and the owner approved `OP-B-intermediate` for the
+M1 manifest/policy. Fractional gating is deferred to M2, spectral aggregation
+uses arbitrary manifest bands, detector configuration is explicit, and drift
+uses split fast/extended coverage. Production implementation and complete
+requirement evidence remain necessary before this specification can become
+`Verified`.
 
 ## Revision history
 
@@ -368,3 +394,4 @@ above keeps this specification in `Review`.
 |---|---|---|
 | 2026-08-14 | Initial comparator contract | New specification |
 | 2026-08-15 | Define integer correlation/overlap, defer fractional gating, select spectral bands and drift tiers, and expose calibration blocker | Compatible clarification |
+| 2026-08-15 | Record the explicit M1-only `OP-B-intermediate` decision, accepted holdout budget, and residual short-overlap limitation; accept contract | Compatible policy decision |

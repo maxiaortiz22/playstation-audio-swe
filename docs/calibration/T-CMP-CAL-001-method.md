@@ -1,9 +1,10 @@
 # T-CMP-CAL-001 alignment-ambiguity calibration method
 
-- **Status:** Frozen method for the FASE A spike
-- **Specification status:** SPEC-001 remains `Review`
+- **Status:** Frozen method; FASE B decision recorded
+- **Specification status:** SPEC-001 is `Accepted`, not `Verified`
 - **Production comparator:** Out of scope
 - **Configuration:** [`t_cmp_cal_001.json`](../../configs/calibration/t_cmp_cal_001.json)
+- **M1 decision:** [`m1-alignment-operating-point.json`](../../configs/policies/m1-alignment-operating-point.json)
 
 This document fixes the labels, score conventions, corpus separation, and
 error accounting before either calibration or holdout is evaluated. Numeric
@@ -150,8 +151,10 @@ Ranges are deliberately broad enough to expose boundary behavior:
 This OFAT design does not estimate every parameter interaction. The three full
 candidates exercise coherent permissive, intermediate, and conservative
 combinations over all calibration cases. Holdout is never used to invent or
-replace a candidate. The evidence presents all three, including failures, and
-does not choose a winner.
+replace a candidate. FASE A presented all three, including failures, without
+choosing a winner. FASE B records the owner's explicit choice from that same
+set without changing the corpus, seeds, oracles, labels, candidate parameters,
+formulas, or evaluation semantics.
 
 ## Outputs and decision rule
 
@@ -166,5 +169,18 @@ The owner's initial risk rule is applied only as a presentation filter:
    holdout, including zero wrong-lag valid cases.
 2. Among eligible candidates, compare `false_ambiguous` globally and by
    family.
-3. A human chooses the operating point and rationale. FASE A does not update
-   SPEC-001 from `Review`.
+3. A human chooses the operating point and rationale; the runner never ranks a
+   winner automatically and has no fallback candidate.
+
+On 2026-08-15, the owner selected `OP-B-intermediate` for the M1 manifest/policy
+only: `plateau_epsilon=1e-5`, maximum plateau width `2` frames, secondary
+exclusion radius `4` frames, minimum primary absolute correlation `0.50`,
+minimum accepted peak ratio `1.10`, RMS floor `1e-5` linear FS, and minimum
+overlap `64` frames. The unchanged holdout produced zero false-valid, zero
+wrong-lag valid, zero false-ambiguous, and one accepted false-invalid.
+
+That false-invalid is `holdout-rademacher-noise-v1-10`. Its 48-frame sync
+region cannot satisfy the selected 64-frame minimum overlap, so the explicit
+`invalid` result is retained. `OP-A-permissive` was rejected for a wrong-lag
+valid result; `OP-C-conservative` added a low-level false-invalid without
+improving the observed safety counters. This policy is not a universal default.

@@ -1,13 +1,15 @@
 # T-CMP-CAL-001 calibration evidence
 
-- **Phase:** FASE A; human operating-point decision pending
-- **SPEC-001 status:** `Review` (unchanged)
-- **Source revision:** `7320d057fff64a9fd13f07e963db24328cd01bb7`
+- **Phase:** FASE B; explicit human operating-point decision recorded
+- **SPEC-001 status:** `Accepted` (not `Verified`)
+- **Source revision:** `165450adabaf2ea30d7cb7310d74ea0fae2bc3ed`
 - **Dirty at execution:** `false`
 - **Configuration SHA-256:** `f065613292b263a4a024d1b724a2be2e7a83d18b622222d560c690517aa25664`
 - **Frozen candidate-set SHA-256:** `8c754de0823e06ef9f43cc24e07b168fa8c19ca26c3d19dcf4cbeac7a3e657b2`
-- **Curated summary SHA-256:** `92c8baf2081741fc969b0c8ecc233399b7af4eae5d7911b3052672a41d8727c0`
-- **Ignored full raw result SHA-256:** `173056eb1550ba46f9fb98387b578315dcf7fb27719c4a2198fedfa6051d822e`
+- **Frozen corpus-provenance SHA-256:** `d6457d7f14c41a899164089ef8d5fbf0fe254ac4972f4fb4b106ded02bd01ee0`
+- **M1 decision SHA-256:** `67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab`
+- **Curated summary SHA-256:** `270e58e8b54a423cf714e6907a1d7e1e11cc4bce694f937999b0a924b2ded27e`
+- **Ignored full raw result SHA-256:** `76d162533471fb0b7bbe94caee9e75d5668163a9d5dfe7f1e6610430037938d5`
 
 The labels, formulas, tie/plateau/exclusion rules, error definitions,
 sweep bounds, and leakage interpretation were frozen in
@@ -17,7 +19,7 @@ before evaluating holdout. No production comparator is included.
 ## Reproduction
 
 ```text
-python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --output artifacts/t_cmp_cal_001
+python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --decision configs/policies/m1-alignment-operating-point.json --output artifacts/t_cmp_cal_001
 ```
 
 The command writes full lag observations under ignored `artifacts/`.
@@ -193,8 +195,23 @@ from one construction are correlated, and reusing this holdout after changing a
 candidate would turn it into tuning data. Large per-lag score observations remain
 outside source control.
 
-## Decision required
+## Accepted M1 operating point
 
-No candidate is selected automatically. The owner must apply the stated risk
-criterion, review family-level behavior, and explicitly choose an operating point
-before FASE B may record rationale or change SPEC-001 from `Review`.
+The repository owner explicitly selected **OP-B-intermediate**.
+This decision applies only to the M1 manifest/policy; it is not a universal default.
+There is no automatic selection and no fallback operating point.
+
+- `plateau_epsilon=1e-05` unitless absolute score difference
+- `maximum_primary_plateau_width_frames=2` frames
+- `secondary_exclusion_radius_frames=4` frames
+- `minimum_primary_abs_correlation=0.5` unitless
+- `minimum_accepted_peak_ratio=1.1` unitless
+- `sync_rms_floor_linear_fs=1e-05` linear FS RMS
+- `minimum_overlap_frames=64` frames
+
+The rerun satisfies the approved deterministic holdout budget: false-valid=0, wrong-lag valid=0, false-ambiguous=0, false-invalid=1.
+
+The accepted false-invalid is `holdout-rademacher-noise-v1-10`: its 48-frame sync region cannot satisfy the selected 64-frame minimum overlap, so the result remains `invalid` with reason `no_lag_passed_energy_and_overlap`.
+
+The rationale is recorded in the M1 decision policy and in SPEC-001. The spike does
+not include a production comparator, and acceptance does not claim verification.

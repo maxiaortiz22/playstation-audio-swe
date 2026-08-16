@@ -1670,7 +1670,7 @@ def _evidence_markdown(result: dict[str, Any], summary_sha256: str, raw_sha256: 
             "",
             "## Accepted M1 operating point",
             "",
-            f"The repository owner explicitly selected **{decision['selected_operating_point']}**. ",
+            f"The repository owner explicitly selected **{decision['selected_operating_point']}**.",
             "This decision applies only to the M1 manifest/policy; it is not a universal default.",
             "There is no automatic selection and no fallback operating point.",
             "",

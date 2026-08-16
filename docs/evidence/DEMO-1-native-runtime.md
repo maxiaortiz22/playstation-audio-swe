@@ -34,9 +34,9 @@ unsigned counter rollover through a reduced-width deterministic test type.
 
 | Area | Requirement IDs | Automated evidence |
 |---|---|---|
-| Native boundary and execution | `SYS-BND-001`, `SYS-EXE-002..004`, `RT-BLK-002`, `RT-BLK-004` | `cpp/tests/native_runtime_test.cpp`, native metadata test |
-| Coarse Python boundary | `SYS-BND-002..003`, `SYS-BND-005`, partial `RT-PY-001..003` | `tests/integration/test_native_runtime_binding.py`, `tests/integration/test_wheel_import.py` |
-| SPSC functional behavior | `RT-SPSC-001..002`, partial `RT-SPSC-003..006`, `RT-QUE-001..006` | `cpp/tests/spsc_ring_buffer_test.cpp` |
+| Native boundary and execution | `SYS-BND-001`, `SYS-EXE-002`, `SYS-EXE-003`, `SYS-EXE-004`, `RT-BLK-002`, `RT-BLK-004` | `cpp/tests/native_runtime_test.cpp`, native metadata test |
+| Coarse Python boundary | `SYS-BND-002`, `SYS-BND-003`, `SYS-BND-005`, partial `RT-PY-001`, `RT-PY-002`, `RT-PY-003` | `tests/integration/test_native_runtime_binding.py`, `tests/integration/test_wheel_import.py` |
+| SPSC functional behavior | `RT-SPSC-001`, `RT-SPSC-002`, partial `RT-SPSC-003`, `RT-SPSC-004`, `RT-SPSC-005`, `RT-SPSC-006`, `RT-QUE-001`, `RT-QUE-002`, `RT-QUE-003`, `RT-QUE-004`, `RT-QUE-005`, `RT-QUE-006` | `cpp/tests/spsc_ring_buffer_test.cpp` |
 
 ## Local verification
 
@@ -50,6 +50,7 @@ unsigned counter rollover through a reduced-width deterministic test type.
 | Clean `python -m build --wheel --no-isolation` | Passed; exactly one CPython 3.12 Windows x64 wheel produced |
 | Installed-wheel import from outside the source tree | Passed; import resolved from the clean smoke venv `site-packages` |
 | Installed-wheel `python -m pytest tests/integration` | Passed, 16/16 tests |
+| `git diff --check 5b34c5e` | Passed |
 
 The first Python-only attempt used the pre-existing global pytest temporary
 root and encountered 13 setup errors because that directory denied access.

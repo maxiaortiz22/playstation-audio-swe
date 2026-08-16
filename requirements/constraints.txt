@@ -1,6 +1,8 @@
 # Direct dependency constraints. CI installs the hash-locked files instead.
 build==1.5.0
+Jinja2==3.1.6
 jsonschema==4.26.0
+MarkupSafe==3.0.3
 numpy==2.4.6
 pytest==9.1.1
 scikit-build-core==1.0.3

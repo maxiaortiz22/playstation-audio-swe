@@ -125,6 +125,19 @@ Statistical policies are extended by SPEC-006.
 
 ### Result schema
 
+Deterministic offline fixture manifests MAY request byte-reproducible result
+identity by declaring an explicit RFC 3339 timestamp in the parameters of the
+selected versioned SUT. In that mode, `run_id` is derived from the exact
+manifest digest, both required timestamps use the declared value, and the
+result records `timestamps.basis = manifest_declared_fixture` plus
+`timestamps.wall_clock_recorded = false`. Reports SHALL label that value as a
+logical fixture timestamp rather than elapsed or wall-clock evidence. This mode
+is limited to deterministic fixture/demo execution; a runner SHALL NOT invent a
+fixed timestamp or silently replace wall-clock timing for an execution that did
+not request it. Equivalent runs in this mode serialize byte-identical JSON when
+their manifest, deterministic SUT, source/dependency provenance, and result
+schema are unchanged.
+
 - **RPT-SCHEMA-001:** Machine-readable results SHALL use a versioned JSON schema.
 - **RPT-SCHEMA-002:** Every run SHALL include run ID, timestamps, test ID, manifest digest, source revision, dirty state, `validation_status`, `run_status`, and `completion_status` as separate fields.
 - **RPT-SCHEMA-003:** Metrics SHALL store numerical value separately from unit, validity, method/version, and scope.
@@ -275,3 +288,4 @@ or amend the contract rather than silently promoting warnings.
 | 2026-08-14 | Initial diagnostics/policy/CI contract | New specification |
 | 2026-08-15 | Resolve JSON, dual-status, HTML, warning, artifact, exit-code, and traceability decisions; accept contract | Compatible clarification |
 | 2026-08-16 | Fix the approved-baseline descriptor, explicit create/replace lifecycle, retained provenance, digest verification, and structured invalid-input boundary | Compatible clarification |
+| 2026-08-16 | Define explicit manifest-declared logical timestamps and content-addressed run identity for byte-reproducible deterministic fixture results | Compatible clarification |

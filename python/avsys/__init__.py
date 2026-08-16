@@ -10,4 +10,11 @@ def native_version() -> str:
     return _native.version()
 
 
-__all__ = ["__version__", "native_version"]
+def native_passthrough(input_buffer, block_size: int = 128):
+    """Return a new bit-exact native passthrough copy of interleaved PCM."""
+    from . import _native
+
+    return _native.native_passthrough(input_buffer, block_size)
+
+
+__all__ = ["__version__", "native_passthrough", "native_version"]

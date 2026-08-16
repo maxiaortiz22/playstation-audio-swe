@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import avsys
+from avsys import _native
 
 
 def _assert_error(
@@ -55,6 +56,28 @@ def test_sys_bnd_003_rejects_invalid_buffer_contract(
     input_buffer: np.ndarray, code: str
 ) -> None:
     _assert_error(input_buffer, code=code)
+
+
+def test_sys_bnd_003_rejects_misaligned_float32_pointer_before_native_access() -> None:
+    backing_buffer = bytearray(4 * 4 + 1)
+    input_buffer = np.ndarray(
+        shape=(4, 1), dtype=np.float32, buffer=backing_buffer, offset=1
+    )
+    assert input_buffer.flags.c_contiguous
+    assert not input_buffer.flags.aligned
+    assert input_buffer.ctypes.data % np.dtype(np.float32).alignment == 1
+
+    with pytest.raises(_native.NativeRuntimeError) as caught:
+        avsys.native_passthrough(input_buffer, block_size=64)
+
+    error = caught.value
+    assert error.code == "AVSYS_BUFFER_ALIGNMENT"
+    assert error.category == "buffer_contract"
+    assert error.detail == (
+        "input data pointer is not aligned to alignof(float): "
+        "required alignment=4 bytes, address remainder=1"
+    )
+    assert str(error) == f"[{error.code}][{error.category}] {error.detail}"
 
 
 def test_sys_exe_004_rejects_invalid_block_size_with_structured_error() -> None:

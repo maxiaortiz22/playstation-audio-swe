@@ -5,6 +5,7 @@
 #include <pybind11/pybind11.h>
 
 #include <cstddef>
+#include <cstdint>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -65,6 +66,15 @@ PYBIND11_MODULE(_native, module) {
           raise_runtime_error(runtime_error, "AVSYS_BUFFER_CONTIGUITY", "buffer_contract",
                               "input must be C-contiguous with frame-major interleaved samples");
         }
+        const auto input_address = reinterpret_cast<std::uintptr_t>(input.data());
+        const auto alignment_remainder = input_address % alignof(float);
+        if (alignment_remainder != 0) {
+          raise_runtime_error(
+              runtime_error, "AVSYS_BUFFER_ALIGNMENT", "buffer_contract",
+              "input data pointer is not aligned to alignof(float): required alignment=" +
+                  std::to_string(alignof(float)) + " bytes, address remainder=" +
+                  std::to_string(alignment_remainder));
+        }
         if (block_size <= 0) {
           raise_runtime_error(runtime_error, "AVSYS_BLOCK_SIZE", "native_runtime",
                               "block_size must be greater than zero; received " +
@@ -94,8 +104,9 @@ PYBIND11_MODULE(_native, module) {
       py::arg("input").noconvert(), py::arg("block_size") = 128,
       R"doc(Process one float32 interleaved mono/stereo stream in native blocks.
 
-The input must be a C-contiguous NumPy array shaped (frames, channels). It is
-borrowed read-only for the duration of this coarse call and is never modified.
-The return value is a new, writable, Python-owned C-contiguous float32 array.
+The input must be a C-contiguous NumPy array shaped (frames, channels), and its
+data pointer must satisfy alignof(float). It is borrowed read-only for the
+duration of this coarse call and is never modified. The return value is a new,
+writable, Python-owned C-contiguous float32 array.
 )doc");
 }

@@ -18,10 +18,13 @@ a block's valid region remain untouched.
 
 The single `native_passthrough` Python operation validates a NumPy input before
 native execution, borrows it read-only, allocates a distinct Python-owned
-output, and releases the GIL only around C++ processing that uses captured raw
-pointers. Boundary failures are `ValueError` subclasses with stable `code`,
-`category`, and `detail` attributes for dtype, rank, shape, channel count,
-contiguity, and block-size errors.
+output, verifies that the input pointer satisfies `alignof(float)`, and releases
+the GIL only around C++ processing that uses captured raw pointers. Boundary
+failures are `ValueError` subclasses with stable `code`, `category`, and
+`detail` attributes for dtype, rank, shape, channel count, contiguity, pointer
+alignment, and block-size errors. Misaligned input uses
+`AVSYS_BUFFER_ALIGNMENT` in the `buffer_contract` category and reports required
+alignment plus the address remainder without dereferencing the pointer.
 
 The independent `SpscRingBuffer<T>` exposes all configured slots as usable,
 rejects zero and non-power-of-two capacities, is non-copyable/non-movable, and
@@ -49,7 +52,7 @@ unsigned counter rollover through a reduced-width deterministic test type.
 | `python -m pytest tests/python` in the hash-locked DEMO-1 venv | Passed, 152/152 tests |
 | Clean `python -m build --wheel --no-isolation` | Passed; exactly one CPython 3.12 Windows x64 wheel produced |
 | Installed-wheel import from outside the source tree | Passed; import resolved from the clean smoke venv `site-packages` |
-| Installed-wheel `python -m pytest tests/integration` | Passed, 16/16 tests |
+| Installed-wheel `python -m pytest tests/integration` | Passed, 17/17 tests |
 | `git diff --check 5b34c5e` | Passed |
 
 The first Python-only attempt used the pre-existing global pytest temporary

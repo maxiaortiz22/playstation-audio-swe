@@ -13,9 +13,11 @@ The repository is in the first implementation phase of its
 accepted the system, real-time transport, and diagnostics contracts. The
 comparator contract is now `Accepted` after its explicit M1 alignment-policy
 decision; the combined filter/resampler specification remains in `Review`
-until its recorded evidence/governance gates close. The M1 foundation slice
-provides reproducible native build/test, wheel/import, and strict JSON-schema
-validation without introducing DSP behavior.
+until its recorded evidence/governance gates close. The M1 foundation and
+deterministic-stimulus slices provide reproducible native build/test,
+wheel/import, strict JSON-schema validation, bit-exact generated float32 PCM,
+and explicit approved-baseline governance without yet introducing a native
+audio SUT, comparator, faults, or reporting engine.
 
 The first implementation milestone will demonstrate an end-to-end audio regression workflow spanning:
 
@@ -204,6 +206,36 @@ JSON/CSV/Markdown/SVG evidence is versioned under
 `docs/evidence/T-CMP-CAL-001/`. The owner selected `OP-B-intermediate` only for
 the M1 manifest/policy; the versioned decision has no automatic selector,
 fallback, or universal default. SPEC-001 is `Accepted`, not `Verified`.
+
+## Deterministic stimulus quick start
+
+After installing [`requirements/build-test.lock`](requirements/build-test.lock),
+generate the reviewed stereo PRBS15 manifest into an ignored artifact directory:
+
+```powershell
+$env:PYTHONPATH = "python"
+python -m avsys generate --manifest configs/manifests/m1-deterministic-stereo.json --output artifacts/m1-deterministic-stereo
+Remove-Item Env:PYTHONPATH
+```
+
+The command writes only `manifest.json`, `stimulus.metadata.json`, and
+`stimulus.pcm.f32le` below the selected directory. The packaged manifest is
+byte-identical to the source; metadata records both manifest and little-endian
+float32 PCM SHA-256 digests. Repeating the command with the same manifest
+produces identical files.
+
+The returned Python reference buffer is read-only and backed by immutable
+bytes. `GeneratedStimulus.candidate_copy()` is the explicit transition to a
+writable candidate buffer. Stimulus generation never approves a baseline.
+Baseline creation and replacement are separately named `baseline-create` and
+`baseline-replace` commands requiring reviewer, rationale, timestamp, and
+environment class. The ordinary `load_baseline()` boundary only reads and
+digest-verifies approved input.
+
+The exact generator catalog, PRBS15 recurrence, sample format, and digest
+convention are in [SPEC-000](docs/specs/SPEC-000-system-contract.md). Slice
+evidence and remaining runner/report limitations are recorded in
+[M1 deterministic-stimulus evidence](docs/evidence/M1-deterministic-stimuli.md).
 
 Dependency versions, sources, licenses, and purposes are recorded in the
 [`dependency inventory`](docs/dependency-inventory.md). The four visible CI

@@ -1398,6 +1398,22 @@ def _evidence_markdown(result: dict[str, Any], summary_sha256: str, raw_sha256: 
             "",
         ])
     lines.extend([
+        "## Holdout sensitivity strata",
+        "",
+        "| Candidate | Factor | Category | Cases | False-valid | Wrong-lag | False-ambiguous | False-invalid |",
+        "|---|---|---|---:|---:|---:|---:|---:|",
+    ])
+    for candidate in result["candidate_results"]:
+        sensitivity = candidate["holdout"]["summary"]["sensitivity"]
+        for factor in ("polarity", "level", "lag_position", "noise", "energy", "overlap"):
+            for category, item in sensitivity[factor].items():
+                lines.append(
+                    f"| {candidate['operating_point']['id']} | {factor} | {category} | {item['case_count']} | "
+                    f"{item['false_valid']} | {item['wrong_lag_valid']} | {item['false_ambiguous']} | "
+                    f"{item['false_invalid']} |"
+                )
+    lines.extend([
+        "",
         "## Sensitivity and limitations",
         "",
         "`summary.json` records candidate sensitivity strata for polarity, level, lag",

@@ -2,14 +2,14 @@
 
 - **Phase:** FASE B; explicit human operating-point decision recorded
 - **SPEC-001 status:** `Accepted` (not `Verified`)
-- **Source revision:** `165450adabaf2ea30d7cb7310d74ea0fae2bc3ed`
+- **Source revision:** `3e2e232019e48130094afc65c01577fe0dbf50d5`
 - **Dirty at execution:** `false`
 - **Configuration SHA-256:** `f065613292b263a4a024d1b724a2be2e7a83d18b622222d560c690517aa25664`
 - **Frozen candidate-set SHA-256:** `8c754de0823e06ef9f43cc24e07b168fa8c19ca26c3d19dcf4cbeac7a3e657b2`
 - **Frozen corpus-provenance SHA-256:** `d6457d7f14c41a899164089ef8d5fbf0fe254ac4972f4fb4b106ded02bd01ee0`
 - **M1 decision SHA-256:** `67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab`
-- **Curated summary SHA-256:** `270e58e8b54a423cf714e6907a1d7e1e11cc4bce694f937999b0a924b2ded27e`
-- **Ignored full raw result SHA-256:** `76d162533471fb0b7bbe94caee9e75d5668163a9d5dfe7f1e6610430037938d5`
+- **Curated summary SHA-256:** `d54c60d10c09af13ff51fbaa79ee2a847eb6d1b85a3c33b6ece44e6d0d9307bc`
+- **Ignored full raw result SHA-256:** `09ba5d8018723c8e589b2b3098600a4fee48afe72475f97e76b94d5835405eff`
 
 The labels, formulas, tie/plateau/exclusion rules, error definitions,
 sweep bounds, and leakage interpretation were frozen in

@@ -15734,7 +15734,7 @@
       "version": "10.0.26200"
     },
     "runtime_dependencies": "Python standard library only",
-    "source_revision": "165450adabaf2ea30d7cb7310d74ea0fae2bc3ed",
+    "source_revision": "3e2e232019e48130094afc65c01577fe0dbf50d5",
     "tool_versions": {
       "cmake": "cmake version 3.31.6-msvc6",
       "git": "git version 2.50.0.windows.1",

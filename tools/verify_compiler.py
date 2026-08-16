@@ -17,7 +17,7 @@ def main() -> int:
     completed = subprocess.run(command, capture_output=True, text=True, check=False)
     output = f"{completed.stdout}\n{completed.stderr}"
     expectations = {
-        "gcc13": r"(?im)gcc.*\b13\.",
+        "gcc13": r"(?im)(?:gcc|g\+\+)(?:-\d+)?[^\n]*\b13\.",
         "clang18": r"(?im)clang version 18\.",
         "msvc-v143": r"(?is)microsoft.*19\.(?:3|4)\d",
     }

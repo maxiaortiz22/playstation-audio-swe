@@ -25,6 +25,10 @@ accepted.
 No specification is `Verified`. In particular, the calibration runner is not a
 production comparator and does not supply full production requirement evidence.
 
+The [Interview Demo Core](interview-demo-core.md) is a subordinate, focused
+implementation profile for interview use. It selects a subset of this roadmap
+without changing the dispositions above or the evidence required for M1.
+
 ## Decision record
 
 | Topic | Alternatives reviewed | Decision | Justification and evidence gate |

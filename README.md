@@ -19,6 +19,10 @@ wheel/import, strict JSON-schema validation, bit-exact generated float32 PCM,
 and explicit approved-baseline governance without yet introducing a native
 audio SUT, comparator, faults, or reporting engine.
 
+The [Interview Demo Core](docs/sdd/interview-demo-core.md) selects three focused
+showcase slices without replacing the M1 roadmap or implying that M1 or any
+Accepted specification is `Verified`.
+
 The first implementation milestone will demonstrate an end-to-end audio regression workflow spanning:
 
 - A C++ audio system under test and real-time-style processing harness.

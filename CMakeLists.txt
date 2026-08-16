@@ -47,7 +47,10 @@ if(AVSYS_BUILD_PYTHON)
   target_link_libraries(_native PRIVATE avsys::core)
   target_compile_features(_native PRIVATE cxx_std_20)
   install(TARGETS _native LIBRARY DESTINATION avsys RUNTIME DESTINATION avsys)
-  install(FILES schemas/v1/manifest.schema.json schemas/v1/result.schema.json
+  install(FILES schemas/v1/baseline.schema.json
+                schemas/v1/manifest.schema.json
+                schemas/v1/result.schema.json
+                schemas/v1/stimulus-metadata.schema.json
           DESTINATION avsys/schemas/v1)
 endif()
 

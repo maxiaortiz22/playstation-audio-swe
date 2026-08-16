@@ -14,8 +14,10 @@ from jsonschema import Draft202012Validator, FormatChecker
 
 
 _SCHEMA_FILES = {
+    "baseline": "baseline.schema.json",
     "manifest": "manifest.schema.json",
     "result": "result.schema.json",
+    "stimulus_metadata": "stimulus-metadata.schema.json",
 }
 
 
@@ -36,6 +38,7 @@ class LoadedContract:
 
     document: dict[str, Any]
     sha256: str
+    raw: bytes = b""
 
 
 def _json_pointer(parts: Iterable[object]) -> str:
@@ -132,7 +135,7 @@ def load_contract_bytes(raw: bytes, *, contract: str) -> LoadedContract:
             schema_path="/type",
         )
     validate_document(document, contract=contract)
-    return LoadedContract(document=document, sha256=digest)
+    return LoadedContract(document=document, sha256=digest, raw=raw)
 
 
 def load_contract(path: str | Path, *, contract: str) -> LoadedContract:

@@ -107,6 +107,10 @@ def main() -> int:
 
     cmake_executable = cmake_bin / ("cmake.exe" if system == "Windows" else "cmake")
     ninja_executable = ninja_destination / ("ninja.exe" if system == "Windows" else "ninja")
+    if system != "Windows":
+        # ZIP archives do not carry the POSIX executable mode. Restore it before
+        # verifying or publishing the downloaded Ninja binary on Linux.
+        ninja_executable.chmod(ninja_executable.stat().st_mode | 0o111)
     cmake_output = subprocess.check_output(
         [cmake_executable, "--version"], text=True
     ).splitlines()[0]

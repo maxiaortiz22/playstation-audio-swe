@@ -184,6 +184,25 @@ cd "$smoke_dir"
 "$repo/build/smoke-venv/bin/python" -c "import avsys; assert avsys.native_version() == avsys.__version__"
 ```
 
+## Alignment calibration spike
+
+`T-CMP-CAL-001` is an offline, standard-library-only experiment that calibrates
+the integer cross-correlation ambiguity contract without adding a production
+comparator to `avsys`. Its frozen labels, formulas, bounded OFAT sweep, corpus
+separation, and decision rule are documented in
+[`docs/calibration/T-CMP-CAL-001-method.md`](docs/calibration/T-CMP-CAL-001-method.md).
+
+Run the full calibration and frozen holdout candidates with:
+
+```powershell
+python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --output artifacts/t_cmp_cal_001
+```
+
+Full per-lag results remain under ignored `artifacts/`. The small reviewed
+JSON/CSV/Markdown/SVG evidence is versioned under
+`docs/evidence/T-CMP-CAL-001/`. SPEC-001 remains in `Review` until an owner
+explicitly selects an operating point and FASE B validates that decision.
+
 Dependency versions, sources, licenses, and purposes are recorded in the
 [`dependency inventory`](docs/dependency-inventory.md). The four visible CI
 families are native, Python/schema, cross-language wheel/import, and native

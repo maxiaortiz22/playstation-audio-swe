@@ -1,0 +1,113 @@
+{
+  "experiment_id": "T-CMP-CAL-001",
+  "experiment_version": "1.0.0",
+  "sample_rate_hz": 48000,
+  "search_bounds_reported_lag_frames": {
+    "minimum": -64,
+    "maximum": 64,
+    "bounds": "inclusive",
+    "span_frames": 128,
+    "lag_count": 129
+  },
+  "requirements": [
+    "SYS-TTV-004",
+    "CMP-ALIGN-002",
+    "CMP-ALIGN-005",
+    "CMP-ALIGN-006",
+    "CMP-ALIGN-007"
+  ],
+  "corpus": {
+    "generator_suite_id": "t-cmp-cal-001-corpus",
+    "generator_suite_version": "1.0.0",
+    "calibration": {
+      "seed_base": 11000,
+      "durations_frames": [521, 769, 1031],
+      "interior_lags_frames": [-37, 0, 29],
+      "levels_linear_fs": [0.8, 0.18, 0.0008],
+      "snr_db": [36.0, 18.0, 7.0],
+      "sync_origins_frames": [[0, 0], [13, 5], [7, 19]],
+      "generator_families": [
+        "uniform-noise-v1",
+        "lfsr-prbs15-v1",
+        "integer-periodic-v1",
+        "multi-transient-v1",
+        "exact-silence-v1",
+        "short-sync-v1",
+        "constant-plateau-v1"
+      ]
+    },
+    "holdout": {
+      "seed_base": 91000,
+      "durations_frames": [641, 887, 1153],
+      "interior_lags_frames": [-23, 0, 41],
+      "levels_linear_fs": [0.63, 0.09, 0.0005],
+      "snr_db": [31.0, 14.0, 4.5],
+      "sync_origins_frames": [[0, 0], [17, 3], [11, 23]],
+      "generator_families": [
+        "rademacher-noise-v1",
+        "integer-chirp-v1",
+        "harmonic-comb-v1",
+        "repeated-block-v1",
+        "near-silence-v1",
+        "short-sync-offset-v1",
+        "tapered-plateau-v1"
+      ]
+    }
+  },
+  "sweep": {
+    "design": "one-factor-at-a-time-around-reference-plus-three-frozen-risk-profiles",
+    "reference": {
+      "plateau_epsilon": 0.00001,
+      "maximum_primary_plateau_width_frames": 2,
+      "secondary_exclusion_radius_frames": 4,
+      "minimum_primary_abs_correlation": 0.5,
+      "minimum_accepted_peak_ratio": 1.1,
+      "sync_rms_floor_linear_fs": 0.00001,
+      "minimum_overlap_frames": 64
+    },
+    "axes": {
+      "plateau_epsilon": [0.0, 0.000001, 0.00001, 0.001],
+      "maximum_primary_plateau_width_frames": [1, 2, 4, 8],
+      "secondary_exclusion_radius_frames": [0, 2, 4, 8, 16],
+      "minimum_primary_abs_correlation": [0.35, 0.5, 0.7, 0.9],
+      "minimum_accepted_peak_ratio": [1.0, 1.05, 1.1, 1.25],
+      "sync_rms_floor_linear_fs": [0.0, 0.0000001, 0.00001, 0.001],
+      "minimum_overlap_frames": [16, 32, 64, 128, 256]
+    }
+  },
+  "frozen_operating_point_candidates": [
+    {
+      "id": "OP-A-permissive",
+      "risk_posture": "Preserve more unique low-level/noisy alignments while rejecting exact ties.",
+      "plateau_epsilon": 0.000001,
+      "maximum_primary_plateau_width_frames": 4,
+      "secondary_exclusion_radius_frames": 2,
+      "minimum_primary_abs_correlation": 0.35,
+      "minimum_accepted_peak_ratio": 1.05,
+      "sync_rms_floor_linear_fs": 0.0000001,
+      "minimum_overlap_frames": 32
+    },
+    {
+      "id": "OP-B-intermediate",
+      "risk_posture": "Middle profile for ambiguity rejection and usable low-level evidence.",
+      "plateau_epsilon": 0.00001,
+      "maximum_primary_plateau_width_frames": 2,
+      "secondary_exclusion_radius_frames": 4,
+      "minimum_primary_abs_correlation": 0.5,
+      "minimum_accepted_peak_ratio": 1.1,
+      "sync_rms_floor_linear_fs": 0.00001,
+      "minimum_overlap_frames": 64
+    },
+    {
+      "id": "OP-C-conservative",
+      "risk_posture": "Reject weak, broad, or moderately competing evidence at higher false-ambiguous risk.",
+      "plateau_epsilon": 0.0001,
+      "maximum_primary_plateau_width_frames": 1,
+      "secondary_exclusion_radius_frames": 8,
+      "minimum_primary_abs_correlation": 0.7,
+      "minimum_accepted_peak_ratio": 1.25,
+      "sync_rms_floor_linear_fs": 0.001,
+      "minimum_overlap_frames": 128
+    }
+  ]
+}

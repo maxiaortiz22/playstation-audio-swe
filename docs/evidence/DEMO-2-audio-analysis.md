@@ -151,6 +151,11 @@ GoogleTest gitlink `52eb8108c5bdec04579160ae17225d66034bd723`.
   and imported `avsys`, `avsys.analysis`, and `avsys.faults` from outside the
   source tree; Python/native versions were both `0.1.0` and NumPy was `2.4.6`.
 
-Hosted pull-request CI is reported by GitHub checks and is not claimed by this
-local evidence record. Linux sanitizer execution is likewise delegated to that
-workflow.
+## Hosted CI
+
+[GitHub Actions run 31924597351](https://github.com/maxiaortiz22/playstation-audio-swe/actions/runs/31924597351)
+for draft PR #9 completed 10/10 jobs successfully on commit `c35dcf5`. The run
+covered Python 3.11/3.12/3.13, native GCC 13/Clang 18/MSVC v143, cross-language
+wheel/import on Linux GCC/Linux Clang/Windows MSVC, and Linux Clang 18
+ASan+UBSan. The follow-up commit that records this hosted result changes only
+this evidence document.

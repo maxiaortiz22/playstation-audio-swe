@@ -1,0 +1,36 @@
+[build-system]
+requires = ["scikit-build-core==1.0.3"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "audio-validation-systems-lab"
+version = "0.1.0"
+description = "Reproducible foundation for the Audio Validation Systems Lab"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+authors = [{ name = "Audio Validation Systems Lab maintainers" }]
+dependencies = ["jsonschema==4.26.0"]
+
+[project.optional-dependencies]
+test = ["pytest==9.1.1"]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+cmake.version = ">=3.25"
+cmake.args = ["-G", "Ninja"]
+ninja.version = ">=1.12"
+ninja.make-fallback = false
+wheel.packages = ["python/avsys"]
+wheel.reproducible = true
+build-dir = "build/wheel/{wheel_tag}"
+sdist.exclude = ["build", "dist", ".venv", "artifacts", "reports", "results"]
+
+[tool.scikit-build.cmake.define]
+AVSYS_BUILD_PYTHON = "ON"
+AVSYS_BUILD_TESTS = "OFF"
+BUILD_TESTING = "OFF"
+CMAKE_CXX_EXTENSIONS = "OFF"
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests/python"]

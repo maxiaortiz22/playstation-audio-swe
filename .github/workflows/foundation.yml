@@ -1,0 +1,180 @@
+name: M1 foundation
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native / ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC v143
+            os: windows-2022
+            python: 3.12.10
+          - name: Linux GCC 13
+            os: ubuntu-24.04
+            python: 3.11.16
+            cc: gcc-13
+            cxx: g++-13
+            compiler_family: gcc13
+          - name: Linux Clang 18
+            os: ubuntu-24.04
+            python: 3.13.15
+            cc: clang-18
+            cxx: clang++-18
+            compiler_family: clang18
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify submodule pins
+        run: python tools/verify_submodules.py
+      - name: Provision recorded CMake and Ninja
+        run: python tools/bootstrap_toolchain.py --destination build/toolchain
+      - name: Configure, build, and test (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          python tools/verify_compiler.py --executable "$CXX" --family "${{ matrix.compiler_family }}"
+          cmake --preset native-debug
+          cmake --build --preset native-debug
+          ctest --preset native-debug
+      - name: Configure, build, and test (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          where cl.exe
+          python tools/verify_compiler.py --executable cl.exe --family msvc-v143
+          cmake --preset native-debug -DCMAKE_CXX_COMPILER=cl.exe
+          cmake --build --preset native-debug
+          ctest --preset native-debug
+
+  python-schema:
+    name: Python and schema / ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python: [3.11.16, 3.12.10, 3.13.15]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install locked test dependencies
+        run: python -m pip install --require-hashes -r requirements/build-test.lock
+      - name: Validate Python and JSON contracts
+        env:
+          PYTHONPATH: python
+        run: python -m pytest tests/python
+
+  wheel-import:
+    name: Cross-language wheel and import / ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC / Python 3.12
+            os: windows-2022
+            python: 3.12.10
+          - name: Linux GCC / Python 3.11
+            os: ubuntu-24.04
+            python: 3.11.16
+            cc: gcc-13
+            cxx: g++-13
+            compiler_family: gcc13
+          - name: Linux Clang / Python 3.13
+            os: ubuntu-24.04
+            python: 3.13.15
+            cc: clang-18
+            cxx: clang++-18
+            compiler_family: clang18
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Verify submodule pins
+        run: python tools/verify_submodules.py
+      - name: Install locked build dependencies
+        run: python -m pip install --require-hashes -r requirements/build-test.lock
+      - name: Provision recorded CMake and Ninja
+        run: python tools/bootstrap_toolchain.py --destination build/toolchain
+      - name: Build and smoke-test wheel (Linux)
+        if: runner.os == 'Linux'
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        run: |
+          python tools/verify_compiler.py --executable "$CXX" --family "${{ matrix.compiler_family }}"
+          python -m build --wheel --no-isolation
+          python -m venv build/smoke-venv
+          build/smoke-venv/bin/python -m pip install --require-hashes -r requirements/runtime.lock
+          build/smoke-venv/bin/python -m pip install --no-deps dist/*.whl
+          smoke_dir="$(mktemp -d)"
+          cd "$smoke_dir"
+          "$GITHUB_WORKSPACE/build/smoke-venv/bin/python" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+      - name: Build wheel (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          python tools/verify_compiler.py --executable cl.exe --family msvc-v143
+          set CMAKE_ARGS=-DCMAKE_CXX_COMPILER=cl.exe
+          python -m build --wheel --no-isolation
+      - name: Install and smoke-test wheel outside source tree (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m venv build/smoke-venv
+          build/smoke-venv/Scripts/python.exe -m pip install --require-hashes -r requirements/runtime.lock
+          $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl).FullName
+          build/smoke-venv/Scripts/python.exe -m pip install --no-deps $wheel
+          $smoke = New-Item -ItemType Directory -Path (Join-Path $env:RUNNER_TEMP 'avsys-smoke') -Force
+          Push-Location $smoke.FullName
+          & "$env:GITHUB_WORKSPACE/build/smoke-venv/Scripts/python.exe" -c "import avsys; assert avsys.native_version() == avsys.__version__"
+          Pop-Location
+
+  sanitizers:
+    name: Sanitizers / Linux Clang 18 ASan+UBSan
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: 3.12.10
+      - name: Verify submodule pins
+        run: python tools/verify_submodules.py
+      - name: Provision recorded CMake and Ninja
+        run: python tools/bootstrap_toolchain.py --destination build/toolchain
+      - name: Build and test with sanitizers
+        env:
+          CC: clang-18
+          CXX: clang++-18
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: |
+          clang-18 --version
+          cmake --preset native-sanitizers
+          cmake --build --preset native-sanitizers
+          ctest --preset native-sanitizers

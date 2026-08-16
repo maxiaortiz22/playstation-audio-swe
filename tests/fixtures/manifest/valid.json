@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "test": {
+    "id": "foundation.roundtrip",
+    "purpose": "Exercise strict contract parsing without running DSP",
+    "owner": "repository-maintainers"
+  },
+  "stimulus": {
+    "generator": {
+      "id": "constant",
+      "version": "1"
+    },
+    "seed": 0,
+    "parameters": {
+      "value": 0.0
+    }
+  },
+  "audio_format": {
+    "sample_rate_hz": 48000,
+    "sample_format": "float32",
+    "frame_count": 480,
+    "layout": "frames_channels_interleaved"
+  },
+  "channel_map": [
+    {
+      "index": 0,
+      "id": "left"
+    },
+    {
+      "index": 1,
+      "id": "right"
+    }
+  ],
+  "block_sizes_frames": [64, 128],
+  "sut": {
+    "id": "metadata-only",
+    "version": "0.1.0",
+    "parameters": {}
+  },
+  "faults": [],
+  "permitted_transforms": [],
+  "metrics": [
+    {
+      "id": "foundation.import",
+      "method": "metadata-match",
+      "version": "1",
+      "unit": "categorical",
+      "scope": {
+        "kind": "aggregate",
+        "parameters": {}
+      },
+      "parameters": {}
+    }
+  ],
+  "policies": [
+    {
+      "id": "foundation-version-match",
+      "requirement_ids": ["SYS-BND-001"],
+      "metric_id": "foundation.import",
+      "expected_unit": "categorical",
+      "scope": {
+        "kind": "aggregate",
+        "parameters": {}
+      },
+      "operator": "exact_match",
+      "threshold": "0.1.0",
+      "directionality": "exact",
+      "severity": "fail",
+      "mandatory": true,
+      "minimum_valid_observations": 1,
+      "rationale": "Prove that the installed extension links to the intended native core.",
+      "owner": "repository-maintainers",
+      "baseline_reference": null,
+      "preprocessing_dependencies": [],
+      "compensation_dependencies": []
+    }
+  ],
+  "artifact_policy": {
+    "output_directory": "artifacts",
+    "retain_on": ["fail", "invalid", "internal_error"]
+  },
+  "execution_tier": "fast"
+}

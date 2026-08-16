@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://audio-validation-systems-lab.invalid/schemas/v1/manifest.schema.json",
+  "title": "Audio Validation Systems Lab manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "test",
+    "stimulus",
+    "audio_format",
+    "channel_map",
+    "block_sizes_frames",
+    "sut",
+    "faults",
+    "permitted_transforms",
+    "metrics",
+    "policies",
+    "artifact_policy",
+    "execution_tier"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+    },
+    "test": { "$ref": "#/$defs/test" },
+    "stimulus": { "$ref": "#/$defs/stimulus" },
+    "audio_format": { "$ref": "#/$defs/audio_format" },
+    "channel_map": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/channel" }
+    },
+    "block_sizes_frames": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "integer", "minimum": 1 }
+    },
+    "sut": { "$ref": "#/$defs/sut" },
+    "faults": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fault" }
+    },
+    "permitted_transforms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transform" }
+    },
+    "metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/metric_request" }
+    },
+    "policies": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/policy" }
+    },
+    "artifact_policy": { "$ref": "#/$defs/artifact_policy" },
+    "execution_tier": {
+      "type": "string",
+      "enum": ["fast", "extended"]
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+    },
+    "parameters": {
+      "description": "Explicit extension point owned by the named versioned component.",
+      "type": "object",
+      "additionalProperties": true
+    },
+    "test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "purpose", "owner"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "purpose": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 }
+      }
+    },
+    "stimulus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "seed", "parameters"],
+      "properties": {
+        "generator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "version"],
+          "properties": {
+            "id": { "$ref": "#/$defs/identifier" },
+            "version": { "type": "string", "minLength": 1 }
+          }
+        },
+        "seed": { "type": "integer", "minimum": 0 },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "audio_format": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_rate_hz", "sample_format", "frame_count", "layout"],
+      "properties": {
+        "sample_rate_hz": { "type": "integer", "minimum": 1 },
+        "sample_format": { "const": "float32" },
+        "frame_count": { "type": "integer", "minimum": 1 },
+        "layout": { "const": "frames_channels_interleaved" }
+      }
+    },
+    "channel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["index", "id"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "id": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "sut": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "parameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "version": { "type": "string", "minLength": 1 },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "fault": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "label", "type", "parameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "label": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/identifier" },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "transform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "parameters"],
+      "properties": {
+        "name": { "$ref": "#/$defs/identifier" },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "parameters"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["aggregate", "channel", "band", "event_type", "statistic"]
+        },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "metric_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "method", "version", "unit", "scope", "parameters"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "method": { "$ref": "#/$defs/identifier" },
+        "version": { "type": "string", "minLength": 1 },
+        "unit": { "type": "string", "minLength": 1 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "parameters": { "$ref": "#/$defs/parameters" }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "requirement_ids",
+        "metric_id",
+        "expected_unit",
+        "scope",
+        "operator",
+        "threshold",
+        "directionality",
+        "severity",
+        "mandatory",
+        "minimum_valid_observations",
+        "rationale",
+        "owner",
+        "baseline_reference",
+        "preprocessing_dependencies",
+        "compensation_dependencies"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "requirement_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "metric_id": { "$ref": "#/$defs/identifier" },
+        "expected_unit": { "type": "string", "minLength": 1 },
+        "scope": { "$ref": "#/$defs/scope" },
+        "operator": {
+          "type": "string",
+          "enum": [
+            "upper_bound",
+            "lower_bound",
+            "inclusive_range",
+            "exact_match",
+            "event_count_bound",
+            "absolute_difference",
+            "relative_difference"
+          ]
+        },
+        "threshold": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "string" },
+            {
+              "type": "array",
+              "prefixItems": [{ "type": "number" }, { "type": "number" }],
+              "items": false,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          ]
+        },
+        "directionality": {
+          "type": "string",
+          "enum": ["higher_is_worse", "lower_is_worse", "two_sided", "exact"]
+        },
+        "severity": { "type": "string", "enum": ["info", "warning", "fail"] },
+        "mandatory": { "type": "boolean" },
+        "minimum_valid_observations": { "type": "integer", "minimum": 1 },
+        "rationale": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1 },
+        "baseline_reference": { "type": ["string", "null"] },
+        "preprocessing_dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "compensation_dependencies": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "artifact_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["output_directory", "retain_on"],
+      "properties": {
+        "output_directory": { "type": "string", "minLength": 1 },
+        "retain_on": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": ["pass", "warning", "fail", "invalid", "internal_error"]
+          }
+        }
+      }
+    }
+  }
+}

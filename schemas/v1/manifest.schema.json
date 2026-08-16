@@ -85,21 +85,125 @@
       }
     },
     "stimulus": {
+      "description": "Closed M1 version-1 deterministic generator catalog.",
+      "oneOf": [
+        { "$ref": "#/$defs/constant_stimulus" },
+        { "$ref": "#/$defs/impulse_stimulus" },
+        { "$ref": "#/$defs/channel_identification_stimulus" },
+        { "$ref": "#/$defs/prbs15_stimulus" }
+      ]
+    },
+    "generator_constant_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "constant" },
+        "version": { "const": "1" }
+      }
+    },
+    "generator_impulse_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "impulse" },
+        "version": { "const": "1" }
+      }
+    },
+    "generator_channel_identification_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "channel-identification" },
+        "version": { "const": "1" }
+      }
+    },
+    "generator_prbs15_v1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": { "const": "prbs15" },
+        "version": { "const": "1" }
+      }
+    },
+    "constant_stimulus": {
       "type": "object",
       "additionalProperties": false,
       "required": ["generator", "seed", "parameters"],
       "properties": {
-        "generator": {
+        "generator": { "$ref": "#/$defs/generator_constant_v1" },
+        "seed": { "const": 0 },
+        "parameters": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["id", "version"],
+          "required": ["value"],
           "properties": {
-            "id": { "$ref": "#/$defs/identifier" },
-            "version": { "type": "string", "minLength": 1 }
+            "value": { "type": "number", "minimum": -1.0, "maximum": 1.0 }
           }
-        },
-        "seed": { "type": "integer", "minimum": 0 },
-        "parameters": { "$ref": "#/$defs/parameters" }
+        }
+      }
+    },
+    "impulse_stimulus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "seed", "parameters"],
+      "properties": {
+        "generator": { "$ref": "#/$defs/generator_impulse_v1" },
+        "seed": { "const": 0 },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amplitude", "frame_index", "channel_indices"],
+          "properties": {
+            "amplitude": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+            "frame_index": { "type": "integer", "minimum": 0 },
+            "channel_indices": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0 }
+            }
+          }
+        }
+      }
+    },
+    "channel_identification_stimulus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "seed", "parameters"],
+      "properties": {
+        "generator": { "$ref": "#/$defs/generator_channel_identification_v1" },
+        "seed": { "const": 0 },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amplitude", "start_frame", "spacing_frames"],
+          "properties": {
+            "amplitude": { "type": "number", "minimum": -1.0, "maximum": 1.0 },
+            "start_frame": { "type": "integer", "minimum": 0 },
+            "spacing_frames": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "prbs15_stimulus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator", "seed", "parameters"],
+      "properties": {
+        "generator": { "$ref": "#/$defs/generator_prbs15_v1" },
+        "seed": { "type": "integer", "minimum": 1, "maximum": 32767 },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["amplitude"],
+          "properties": {
+            "amplitude": { "type": "number", "exclusiveMinimum": 0.0, "maximum": 1.0 }
+          }
+        }
       }
     },
     "audio_format": {

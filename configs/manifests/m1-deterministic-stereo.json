@@ -1,0 +1,83 @@
+{
+  "schema_version": "1.0.0",
+  "test": {
+    "id": "m1.deterministic-stereo",
+    "purpose": "Demonstrate bit-exact stereo PRBS15 stimulus generation",
+    "owner": "repository-maintainers"
+  },
+  "stimulus": {
+    "generator": {
+      "id": "prbs15",
+      "version": "1"
+    },
+    "seed": 4660,
+    "parameters": {
+      "amplitude": 0.25
+    }
+  },
+  "audio_format": {
+    "sample_rate_hz": 48000,
+    "sample_format": "float32",
+    "frame_count": 32,
+    "layout": "frames_channels_interleaved"
+  },
+  "channel_map": [
+    {
+      "index": 0,
+      "id": "left"
+    },
+    {
+      "index": 1,
+      "id": "right"
+    }
+  ],
+  "block_sizes_frames": [16, 32],
+  "sut": {
+    "id": "metadata-only",
+    "version": "0.1.0",
+    "parameters": {}
+  },
+  "faults": [],
+  "permitted_transforms": [],
+  "metrics": [
+    {
+      "id": "stimulus.pcm-digest",
+      "method": "sha256-f32le",
+      "version": "1",
+      "unit": "categorical",
+      "scope": {
+        "kind": "aggregate",
+        "parameters": {}
+      },
+      "parameters": {}
+    }
+  ],
+  "policies": [
+    {
+      "id": "stimulus-digest-recorded",
+      "requirement_ids": ["SYS-REP-001", "RPT-REP-004"],
+      "metric_id": "stimulus.pcm-digest",
+      "expected_unit": "categorical",
+      "scope": {
+        "kind": "aggregate",
+        "parameters": {}
+      },
+      "operator": "exact_match",
+      "threshold": "recorded",
+      "directionality": "exact",
+      "severity": "fail",
+      "mandatory": true,
+      "minimum_valid_observations": 1,
+      "rationale": "The generated canonical PCM must be digest-identifiable.",
+      "owner": "repository-maintainers",
+      "baseline_reference": null,
+      "preprocessing_dependencies": [],
+      "compensation_dependencies": []
+    }
+  ],
+  "artifact_policy": {
+    "output_directory": "artifacts/m1-deterministic-stereo",
+    "retain_on": ["pass", "fail", "invalid", "internal_error"]
+  },
+  "execution_tier": "fast"
+}

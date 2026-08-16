@@ -12,8 +12,9 @@ semantics before the first vertical validation slice exists.
 
 ## Decision
 
-M1 manifests, embedded policies, and results use UTF-8 JSON validated with
-versioned JSON Schema Draft 2020-12 schemas.
+M1 manifests, embedded policies, approved-baseline descriptors, generated
+stimulus metadata, and results use UTF-8 JSON validated with versioned JSON
+Schema Draft 2020-12 schemas.
 
 Under `SYS-EXE-007`, M1 readers:
 
@@ -32,6 +33,12 @@ ambiguous "resolved document" digest.
 JSON outputs are serialized deterministically for testability, but their
 semantic identity is the recorded schema version plus content, not an
 undocumented canonical-JSON algorithm.
+
+Approved-baseline descriptors and generated-stimulus metadata use the same
+strict reader and deterministic serializer. Their referenced PCM digest is
+SHA-256 over headerless little-endian IEEE 754 binary32 samples in C-order;
+this byte convention is intentionally distinct from the exact-input manifest
+digest.
 
 ## Consequences
 

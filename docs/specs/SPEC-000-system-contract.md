@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Owners:** Repository maintainers
 - **Created:** 2026-08-14
-- **Last updated:** 2026-08-15
+- **Last updated:** 2026-08-16
 - **Target milestone:** M1 - End-to-end regression demonstration
 - **Depends on:** ADR-0001, ADR-0002, ADR-0003, ADR-0004, ADR-0005, ADR-0006
 
@@ -95,6 +95,43 @@ Unless a feature specification states otherwise, M1 canonical audio is:
 - Sample rate: positive integer in Hz.
 - Channel count: positive integer with a manifest-defined channel map.
 - Time origin: frame zero of the captured buffer, with pre-roll described separately.
+
+The M1 generated-stimulus boundary further fixes the canonical representation:
+
+- The NumPy dtype is native `float32` on the supported little-endian M1
+  platforms, with shape `(audio_format.frame_count, len(channel_map))` and
+  C-contiguous frame-major/channel-minor storage.
+- The normative digest bytes are the same samples serialized in row-major
+  order as little-endian IEEE 754 binary32, with no header or padding.
+- Channel-map indices are unique and contiguous from zero, channel IDs are
+  unique, and array column `c` has the semantics of channel-map index `c`.
+- Generator parameters are converted once to binary32 using round-to-nearest,
+  ties-to-even. Finite subnormal and signed-zero values are preserved. A
+  generator rejects non-finite parameters and samples outside inclusive
+  full-scale `[-1.0, +1.0]`; it never clips or substitutes a value.
+
+### M1 deterministic generator catalog
+
+Every manifest resolves exactly one of the following `(id, version)` pairs.
+Parameters are exact: required keys must be present and unknown keys are
+rejected by the owning generator. Non-stochastic generators require `seed=0`;
+`prbs15` requires `1 <= seed <= 32767`.
+
+| Generator | Exact parameters | Construction and channel semantics |
+|---|---|---|
+| `constant`, `1` | `value` | Every frame and channel equals the one binary32 value. This preserves the existing `constant`/`1` fixture contract. |
+| `impulse`, `1` | `amplitude`, `frame_index`, `channel_indices` | The buffer starts at positive zero. At the zero-based frame, each unique listed channel receives `amplitude`; every other sample remains zero. The frame and every channel index must be in range. |
+| `channel-identification`, `1` | `amplitude`, `start_frame`, `spacing_frames` | Channel `c` receives one impulse at `start_frame + c * spacing_frames`; other channels are zero. `spacing_frames >= 1`, every impulse must fit, and amplitude may include either full-scale endpoint. |
+| `prbs15`, `1` | `amplitude` | `0 < amplitude <= 1`. Channel `c` starts with state `1 + ((seed - 1 + c) mod 32767)`. For each sample, output bit `b = state & 1`; emit `+amplitude` for one and `-amplitude` for zero; then compute `feedback = ((state >> 0) XOR (state >> 1)) & 1` and `state = (state >> 1) OR (feedback << 14)`. All operations use unsigned integers and the state is masked to 15 bits. |
+
+The stimulus API receives an already validated `LoadedContract`; generator
+validation remains a second semantic gate because JSON Schema cannot select an
+exact parameter object from a dynamic `(id, version)` catalog. It returns an
+immutable reference buffer plus immutable metadata containing generator
+identity, exact parameters, seed, audio format, channel map, exact manifest
+SHA-256, and canonical PCM SHA-256. Candidate processing requires an explicit
+writable copy. Generating this stimulus is not baseline approval and has no
+permission to create or replace an approved baseline.
 
 ### Manifest
 
@@ -258,3 +295,4 @@ of SPEC-003; see the
 | 2026-08-14 | Initial system contract | New specification |
 | 2026-08-15 | Resolve M1 format, stimulus, toolchain, tier, result, and traceability decisions; accept contract | Compatible clarification |
 | 2026-08-15 | Record closure of the SPEC-001 alignment-calibration gate for M1 | Compatible clarification |
+| 2026-08-16 | Fix the M1 generator catalog, PRBS15 recurrence, binary32/digest convention, semantic validation, and immutable stimulus boundary | Compatible clarification |

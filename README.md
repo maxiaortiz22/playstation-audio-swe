@@ -13,11 +13,12 @@ The repository is in the first implementation phase of its
 accepted the system, real-time transport, and diagnostics contracts. The
 comparator contract is now `Accepted` after its explicit M1 alignment-policy
 decision; the combined filter/resampler specification remains in `Review`
-until its recorded evidence/governance gates close. The M1 foundation and
-deterministic-stimulus slices provide reproducible native build/test,
-wheel/import, strict JSON-schema validation, bit-exact generated float32 PCM,
-and explicit approved-baseline governance without yet introducing a native
-audio SUT, comparator, faults, or reporting engine.
+until its recorded evidence/governance gates close. The three focused
+Interview Demo Core slices now provide a native passthrough boundary,
+deterministic delay/channel-swap/dropout analysis, and a small end-to-end
+runner with policy-linked JSON and HTML diagnostics. This remains a selected
+subset: the full M1 filter, extended evidence, and remaining mandatory
+requirements are not implemented or `Verified`.
 
 The [Interview Demo Core](docs/sdd/interview-demo-core.md) selects three focused
 showcase slices without replacing the M1 roadmap or implying that M1 or any
@@ -245,6 +246,42 @@ Dependency versions, sources, licenses, and purposes are recorded in the
 [`dependency inventory`](docs/dependency-inventory.md). The four visible CI
 families are native, Python/schema, cross-language wheel/import, and native
 ASan/UBSan. Hosted execution evidence remains distinct from local evidence.
+
+## End-to-end interview workflow
+
+DEMO-3 adds one canonical command over the existing stimulus, native runtime,
+fault, and analysis boundaries:
+
+```powershell
+avsys run --manifest configs/manifests/demo3-clean.json --output artifacts/demo3-clean
+```
+
+The same runner covers four explicit fast-tier manifests:
+
+```powershell
+avsys run --manifest configs/manifests/demo3-clean.json --output artifacts/demo3-clean
+avsys run --manifest configs/manifests/demo3-delay.json --output artifacts/demo3-delay
+avsys run --manifest configs/manifests/demo3-channel-swap.json --output artifacts/demo3-channel-swap
+avsys run --manifest configs/manifests/demo3-dropout.json --output artifacts/demo3-dropout
+```
+
+Clean returns `0`; the three labeled policy failures return `1`. Invalid input
+or a mandatory invalid measurement returns `2`, and an internal runner or
+mandatory reporting error returns `3`. Each completed run writes a
+byte-identical `manifest.json`, `stimulus.metadata.json`, schema-valid
+deterministic `result.json`, and self-contained autoescaped `report.html`.
+
+The delay result keeps raw latency before the declared integer alignment, so a
+16-frame latency failure remains visible even when aligned residual is exactly
+zero. Channel swap reports observed-to-expected mapping `(1, 0)`. Dropout
+reports the half-open frame/second interval, affected channels, and
+`exact_zero` classification. The report includes policy values, limits, units,
+requirement IDs, provenance, and a packaged reproduction command.
+
+This workflow intentionally does not add spectral/drift/click/clipping/
+crosstalk analysis, callback simulation, benchmarks, a dashboard, or a generic
+plugin architecture. Detailed evidence and limitations are in
+[DEMO-3 end-to-end workflow evidence](docs/evidence/DEMO-3-end-to-end-workflow.md).
 
 ## Validation layers
 

@@ -217,6 +217,31 @@ def test_demo2_cmp_str_002_dtype_rank_layout_channels_and_labels_are_structural(
     assert expected_code in {issue.code for issue in result.issues}
 
 
+def test_demo2_cmp_str_002_object_dtype_is_structured_invalid_and_immutable() -> None:
+    baseline = _pcm()
+    candidate = np.empty(baseline.shape, dtype=object)
+    candidate[:, :] = object()
+    baseline_before = baseline.copy()
+    candidate_references_before = tuple(candidate.flat)
+
+    result = validate_structure(
+        baseline,
+        candidate,
+        _description("L", "R"),
+        _description("L", "R"),
+        _config(),
+    )
+
+    assert result.status == "invalid"
+    assert {issue.code for issue in result.issues} == {"unsupported_dtype"}
+    assert result.input_buffers_unchanged
+    assert np.array_equal(baseline, baseline_before)
+    assert all(
+        after is before
+        for after, before in zip(candidate.flat, candidate_references_before, strict=True)
+    )
+
+
 @pytest.mark.parametrize(("value", "frame", "channel"), [(np.nan, 17, 1), (np.inf, 23, 0)])
 def test_demo2_cmp_str_003_non_finite_is_localized(
     value: float, frame: int, channel: int

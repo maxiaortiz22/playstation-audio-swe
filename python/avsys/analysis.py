@@ -329,19 +329,20 @@ def validate_structure(
             issues.append(StructuralIssue("invalid_channel_label", "channel labels must be non-empty strings", name))
         elif len(set(description.channel_labels)) != len(description.channel_labels):
             issues.append(StructuralIssue("duplicate_channel_label", "channel labels must be unique", name))
-        non_finite = _first_non_finite(pcm, description.channel_labels)
-        if non_finite is not None:
-            frame, channel, label = non_finite
-            issues.append(
-                StructuralIssue(
-                    "non_finite_sample",
-                    "PCM contains NaN or infinity",
-                    name,
-                    frame,
-                    channel,
-                    label,
+        if pcm.dtype == np.dtype(np.float32):
+            non_finite = _first_non_finite(pcm, description.channel_labels)
+            if non_finite is not None:
+                frame, channel, label = non_finite
+                issues.append(
+                    StructuralIssue(
+                        "non_finite_sample",
+                        "PCM contains NaN or infinity",
+                        name,
+                        frame,
+                        channel,
+                        label,
+                    )
                 )
-            )
 
     if baseline_description.sample_rate_hz != candidate_description.sample_rate_hz:
         issues.append(StructuralIssue("sample_rate_mismatch", "sample rates differ; silent resampling is prohibited"))

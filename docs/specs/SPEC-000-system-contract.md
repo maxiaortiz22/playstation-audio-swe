@@ -40,7 +40,7 @@ The project uses a simulated audio SDK and controlled faults. It does not requir
 |---|---|
 | `SYS-*` except `SYS-REP-002`, plus `RT-*`, `POL-*`, `RPT-*`, `CI-*` | Mandatory M1 contract; extended-tier evidence is still required before `Verified` where specified |
 | `SYS-REP-002` | Conditional M2-or-later asset-input contract; M1 rejects asset-based input manifests |
-| `CMP-*` | Mandatory M1 comparator contract, but implementation is blocked while SPEC-001 remains `Review` |
+| `CMP-*` | Mandatory M1 comparator contract under accepted SPEC-001; the selected alignment operating point is M1 manifest/policy data, not a universal default |
 | `FIL-*` | Intended M1 filter slice, blocked while combined SPEC-003 remains `Review` |
 | `SRC-*` | M2; no general resampler SUT or conformance claim in M1 |
 | `SPA-*`, `STAT-*` | M2; not part of M1 exit |
@@ -233,8 +233,8 @@ fixtures.
 
 ## Dependencies
 
-- SPEC-001 defines mandatory M1 comparison semantics; its recorded calibration
-  gate blocks comparator implementation.
+- SPEC-001 defines accepted mandatory M1 comparison semantics; its calibration
+  gate selected `OP-B-intermediate` only for the M1 manifest/policy.
 - SPEC-002 defines accepted M1 streaming and real-time-style behavior.
 - SPEC-003 proposes the M1 filter slice and preserves M2 resampler requirements;
   its `Review` status blocks filter production work.
@@ -246,8 +246,9 @@ fixtures.
 
 No SPEC-000-local question blocks implementation. ADR-0004 selects JSON,
 ADR-0005 selects generated stimuli, and ADR-0006 defines the initial toolchain
-and dependency matrix. The complete M1 demonstration still depends on accepting
-SPEC-001 and the M1 filter slice of SPEC-003; see the
+and dependency matrix. SPEC-001 is accepted after its explicit owner decision.
+The complete M1 demonstration still depends on accepting the M1 filter slice
+of SPEC-003; see the
 [M1 acceptance review](../sdd/M1-acceptance-review.md).
 
 ## Revision history
@@ -256,3 +257,4 @@ SPEC-001 and the M1 filter slice of SPEC-003; see the
 |---|---|---|
 | 2026-08-14 | Initial system contract | New specification |
 | 2026-08-15 | Resolve M1 format, stimulus, toolchain, tier, result, and traceability decisions; accept contract | Compatible clarification |
+| 2026-08-15 | Record closure of the SPEC-001 alignment-calibration gate for M1 | Compatible clarification |

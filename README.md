@@ -11,8 +11,9 @@ The repository is in the first implementation phase of its
 **Specification-Driven Development (SDD)** lifecycle. The 2026-08-15
 [Milestone 1 contract acceptance review](docs/sdd/M1-acceptance-review.md)
 accepted the system, real-time transport, and diagnostics contracts. The
-comparator and combined filter/resampler specification remain in `Review`
-until their recorded evidence/governance gates close. The M1 foundation slice
+comparator contract is now `Accepted` after its explicit M1 alignment-policy
+decision; the combined filter/resampler specification remains in `Review`
+until its recorded evidence/governance gates close. The M1 foundation slice
 provides reproducible native build/test, wheel/import, and strict JSON-schema
 validation without introducing DSP behavior.
 
@@ -192,16 +193,17 @@ comparator to `avsys`. Its frozen labels, formulas, bounded OFAT sweep, corpus
 separation, and decision rule are documented in
 [`docs/calibration/T-CMP-CAL-001-method.md`](docs/calibration/T-CMP-CAL-001-method.md).
 
-Run the full calibration and frozen holdout candidates with:
+Reproduce FASE B with the frozen experiment and explicit M1 decision:
 
 ```powershell
-python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --output artifacts/t_cmp_cal_001
+python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --decision configs/policies/m1-alignment-operating-point.json --output artifacts/t_cmp_cal_001
 ```
 
 Full per-lag results remain under ignored `artifacts/`. The small reviewed
 JSON/CSV/Markdown/SVG evidence is versioned under
-`docs/evidence/T-CMP-CAL-001/`. SPEC-001 remains in `Review` until an owner
-explicitly selects an operating point and FASE B validates that decision.
+`docs/evidence/T-CMP-CAL-001/`. The owner selected `OP-B-intermediate` only for
+the M1 manifest/policy; the versioned decision has no automatic selector,
+fallback, or universal default. SPEC-001 is `Accepted`, not `Verified`.
 
 Dependency versions, sources, licenses, and purposes are recorded in the
 [`dependency inventory`](docs/dependency-inventory.md). The four visible CI
@@ -277,7 +279,7 @@ The full lifecycle and change rules are documented in [docs/sdd/README.md](docs/
 ## Specification index
 
 - [SPEC-000: System and product contract](docs/specs/SPEC-000-system-contract.md) — Accepted
-- [SPEC-001: Aligned audio regression comparator](docs/specs/SPEC-001-regression-comparator.md) — Review
+- [SPEC-001: Aligned audio regression comparator](docs/specs/SPEC-001-regression-comparator.md) — Accepted
 - [SPEC-002: Real-time harness and SPSC transport](docs/specs/SPEC-002-realtime-spsc.md) — Accepted
 - [SPEC-003: Filter and resampler conformance](docs/specs/SPEC-003-filter-resampler.md) — Review
 - [SPEC-004: Diagnostics, policy, and CI](docs/specs/SPEC-004-diagnostics-ci.md) — Accepted
@@ -304,10 +306,11 @@ The initial documentation inventory and acceptance review are complete:
 - pybind11 is pinned and reproducibly initialized.
 - No production behavior is implied solely by undocumented assumptions.
 
-Implementation may begin only for an `Accepted` specification. The full M1
-end-to-end implementation remains blocked on the correlation-ambiguity
-calibration and SPEC-001 acceptance, plus the filter calibration and governance
-work needed to accept SPEC-003. General resampler conformance is already M2.
+Implementation may begin only for an `Accepted` specification. The
+correlation-ambiguity gate is closed and comparator production work may proceed
+under SPEC-001 in a later change. The full M1 end-to-end implementation remains
+blocked on the filter calibration and governance work needed to accept
+SPEC-003. General resampler conformance is already M2.
 The review's decision table, dependency graph, PR roadmap, and remaining human
 decisions are in
 [docs/sdd/M1-acceptance-review.md](docs/sdd/M1-acceptance-review.md).

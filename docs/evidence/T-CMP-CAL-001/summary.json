@@ -15624,13 +15624,67 @@
     }
   ],
   "decision": {
-    "selected_operating_point": null,
-    "spec_001_status": "Review",
-    "status": "human_selection_required"
+    "accepted_false_invalid": {
+      "case_id": "holdout-rademacher-noise-v1-10",
+      "classification": "invalid",
+      "minimum_overlap_frames": 64,
+      "oracle_class": "unique",
+      "oracle_lag_frames": 41,
+      "rationale": "The 48-frame synchronization region cannot satisfy the selected 64-frame minimum overlap; preserving invalid is safer than accepting a spurious lag.",
+      "reason": "no_lag_passed_energy_and_overlap",
+      "sync_region_length_frames": 48
+    },
+    "approved_holdout_error_budget": {
+      "false_ambiguous": 0,
+      "false_invalid": 1,
+      "false_valid": 0,
+      "wrong_lag_valid": 0
+    },
+    "automatic_selection": false,
+    "decision_date": "2026-08-15",
+    "decision_id": "M1-ALIGNMENT-OP-001",
+    "decision_sha256": "67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab",
+    "decision_version": "1.0.0",
+    "error_budget_satisfied": true,
+    "fallback_operating_point_id": null,
+    "frozen_calibration_config_sha256": "f065613292b263a4a024d1b724a2be2e7a83d18b622222d560c690517aa25664",
+    "frozen_candidate_set_sha256": "8c754de0823e06ef9f43cc24e07b168fa8c19ca26c3d19dcf4cbeac7a3e657b2",
+    "frozen_corpus_provenance_sha256": "d6457d7f14c41a899164089ef8d5fbf0fe254ac4972f4fb4b106ded02bd01ee0",
+    "observed_holdout_error_budget": {
+      "false_ambiguous": 0,
+      "false_invalid": 1,
+      "false_valid": 0,
+      "wrong_lag_valid": 0
+    },
+    "owner": "repository-maintainer",
+    "rationale": [
+      "OP-A-permissive is rejected because holdout accepted lag 8 when the oracle was 41, violating the zero-false-valid criterion.",
+      "OP-B-intermediate and OP-C-conservative both produced zero false-valid, zero wrong-lag valid, and zero false-ambiguous on holdout.",
+      "OP-B-intermediate produced one false-invalid while OP-C-conservative produced two, so OP-B preserves the same observed safety with less unnecessary rejection.",
+      "The remaining OP-B false-invalid is the declared 48-frame synchronization-region limitation under minimum_overlap_frames=64.",
+      "OP-C-conservative additionally rejected a valid 0.0005 FS case because of its 0.001 FS RMS floor; that extra M1 cost is not accepted."
+    ],
+    "scope": "m1-manifest-policy-only",
+    "selected_operating_point": "OP-B-intermediate",
+    "selected_operating_point_digest": "04303b903773ea2f772dfe7998c53ad4916b27824ea42335ce178d1f2879db52",
+    "selected_parameters": {
+      "maximum_primary_plateau_width_frames": 2,
+      "minimum_accepted_peak_ratio": 1.1,
+      "minimum_overlap_frames": 64,
+      "minimum_primary_abs_correlation": 0.5,
+      "plateau_epsilon": 1e-05,
+      "secondary_exclusion_radius_frames": 4,
+      "sync_rms_floor_linear_fs": 1e-05
+    },
+    "selection_method": "explicit_human_owner_decision",
+    "spec_001_status": "Accepted",
+    "status": "approved",
+    "universal_default": false
   },
   "experiment_id": "T-CMP-CAL-001",
   "experiment_version": "1.0.0",
   "frozen_candidate_set_sha256": "8c754de0823e06ef9f43cc24e07b168fa8c19ca26c3d19dcf4cbeac7a3e657b2",
+  "frozen_corpus_provenance_sha256": "d6457d7f14c41a899164089ef8d5fbf0fe254ac4972f4fb4b106ded02bd01ee0",
   "leakage_checks": {
     "case_ids": {
       "calibration_count": 28,
@@ -15680,7 +15734,7 @@
       "version": "10.0.26200"
     },
     "runtime_dependencies": "Python standard library only",
-    "source_revision": "7320d057fff64a9fd13f07e963db24328cd01bb7",
+    "source_revision": "3e2e232019e48130094afc65c01577fe0dbf50d5",
     "tool_versions": {
       "cmake": "cmake version 3.31.6-msvc6",
       "git": "git version 2.50.0.windows.1",
@@ -15696,10 +15750,12 @@
       "tools/alignment_calibration.py",
       "--config",
       "configs/calibration/t_cmp_cal_001.json",
+      "--decision",
+      "configs/policies/m1-alignment-operating-point.json",
       "--output",
       "artifacts/t_cmp_cal_001"
     ],
-    "display_command": "python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --output artifacts/t_cmp_cal_001"
+    "display_command": "python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --decision configs/policies/m1-alignment-operating-point.json --output artifacts/t_cmp_cal_001"
   },
   "requirements": [
     "SYS-TTV-004",

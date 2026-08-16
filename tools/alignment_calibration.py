@@ -19,6 +19,15 @@ from typing import Any, Iterable, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR_VERSION = "1.0.0"
 METHOD_VERSION = "t-cmp-cal-001-alignment-v1"
+OPERATING_POINT_PARAMETER_NAMES = (
+    "plateau_epsilon",
+    "maximum_primary_plateau_width_frames",
+    "secondary_exclusion_radius_frames",
+    "minimum_primary_abs_correlation",
+    "minimum_accepted_peak_ratio",
+    "sync_rms_floor_linear_fs",
+    "minimum_overlap_frames",
+)
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -874,6 +883,176 @@ def build_candidates(config: dict[str, Any]) -> list[OperatingPoint]:
     return candidates
 
 
+def _operating_point_parameters(point: OperatingPoint) -> dict[str, Any]:
+    return {name: getattr(point, name) for name in OPERATING_POINT_PARAMETER_NAMES}
+
+
+def _pending_decision() -> dict[str, Any]:
+    return {
+        "status": "human_selection_required",
+        "selection_method": None,
+        "selected_operating_point": None,
+        "selected_parameters": None,
+        "automatic_selection": False,
+        "fallback_operating_point_id": None,
+        "scope": None,
+        "universal_default": False,
+        "error_budget_satisfied": None,
+        "spec_001_status": "Review",
+    }
+
+
+def validate_m1_decision(
+    decision: dict[str, Any],
+    *,
+    decision_digest: str,
+    config_digest: str,
+    candidate_set_digest: str,
+    corpus_provenance_digest: str,
+    candidates: Sequence[OperatingPoint],
+    candidate_results: Sequence[dict[str, Any]],
+    cases: Sequence[CalibrationCase],
+) -> dict[str, Any]:
+    required_fields = {
+        "decision_id",
+        "decision_version",
+        "decision_date",
+        "owner",
+        "selection_method",
+        "automatic_selection",
+        "fallback_operating_point_id",
+        "scope",
+        "experiment_id",
+        "experiment_version",
+        "frozen_calibration_config_sha256",
+        "frozen_candidate_set_sha256",
+        "frozen_corpus_provenance_sha256",
+        "selected_operating_point_id",
+        "selected_operating_point_digest",
+        "selected_parameters",
+        "approved_holdout_error_budget",
+        "accepted_false_invalid",
+        "rationale",
+        "specification_transition",
+        "universal_default",
+    }
+    if set(decision) != required_fields:
+        missing = sorted(required_fields - set(decision))
+        unknown = sorted(set(decision) - required_fields)
+        raise ValueError(f"decision fields mismatch; missing={missing}, unknown={unknown}")
+    fixed_values = {
+        "decision_id": "M1-ALIGNMENT-OP-001",
+        "decision_version": "1.0.0",
+        "decision_date": "2026-08-15",
+        "owner": "repository-maintainer",
+        "selection_method": "explicit_human_owner_decision",
+        "automatic_selection": False,
+        "fallback_operating_point_id": None,
+        "scope": "m1-manifest-policy-only",
+        "experiment_id": "T-CMP-CAL-001",
+        "experiment_version": "1.0.0",
+        "frozen_calibration_config_sha256": config_digest,
+        "frozen_candidate_set_sha256": candidate_set_digest,
+        "frozen_corpus_provenance_sha256": corpus_provenance_digest,
+        "specification_transition": "Accepted",
+        "universal_default": False,
+    }
+    for name, expected in fixed_values.items():
+        actual = decision[name]
+        if type(actual) is not type(expected) or actual != expected:
+            raise ValueError(f"decision {name} must be exactly {expected!r}, got {actual!r}")
+    if not isinstance(decision["rationale"], list) or not decision["rationale"]:
+        raise ValueError("decision rationale must be a non-empty list")
+    if not all(isinstance(item, str) and item for item in decision["rationale"]):
+        raise ValueError("every decision rationale entry must be non-empty text")
+
+    selected_id = decision["selected_operating_point_id"]
+    matching_candidates = [point for point in candidates if point.id == selected_id]
+    if len(matching_candidates) != 1:
+        raise ValueError(f"selected operating point is not exactly one frozen candidate: {selected_id!r}")
+    selected = matching_candidates[0]
+    expected_parameters = _operating_point_parameters(selected)
+    if set(decision["selected_parameters"]) != set(OPERATING_POINT_PARAMETER_NAMES):
+        raise ValueError("selected_parameters must contain exactly the seven calibrated parameters")
+    for name, expected in expected_parameters.items():
+        actual = decision["selected_parameters"][name]
+        if type(actual) is not type(expected) or actual != expected:
+            raise ValueError(f"selected parameter {name} must be exactly {expected!r}, got {actual!r}")
+    if decision["selected_operating_point_digest"] != selected.parameter_digest():
+        raise ValueError("selected operating-point digest does not match the frozen candidate")
+
+    matching_results = [item for item in candidate_results if item["operating_point"]["id"] == selected_id]
+    if len(matching_results) != 1:
+        raise ValueError("selected operating point does not have exactly one evaluation result")
+    selected_result = matching_results[0]
+    holdout_summary = selected_result["holdout"]["summary"]
+    budget_names = ("false_valid", "wrong_lag_valid", "false_ambiguous", "false_invalid")
+    approved_budget = decision["approved_holdout_error_budget"]
+    if set(approved_budget) != set(budget_names):
+        raise ValueError("approved holdout budget has missing or unknown counters")
+    observed_budget = {name: holdout_summary[name] for name in budget_names}
+    for name in budget_names:
+        if type(approved_budget[name]) is not int or approved_budget[name] != observed_budget[name]:
+            raise ValueError(
+                f"selected holdout budget mismatch for {name}: approved={approved_budget[name]!r}, observed={observed_budget[name]!r}"
+            )
+
+    false_invalid_records = [
+        record for record in selected_result["holdout"]["case_results"] if record["false_invalid"]
+    ]
+    if len(false_invalid_records) != approved_budget["false_invalid"]:
+        raise ValueError("selected false-invalid records do not match the approved count")
+    limitation = decision["accepted_false_invalid"]
+    if len(false_invalid_records) != 1 or false_invalid_records[0]["case_id"] != limitation.get("case_id"):
+        raise ValueError("accepted false-invalid case does not match the selected holdout result")
+    false_invalid = false_invalid_records[0]
+    case_by_id = {case.case_id: case for case in cases}
+    limitation_case = case_by_id[false_invalid["case_id"]]
+    limitation_expected = {
+        "case_id": false_invalid["case_id"],
+        "oracle_class": false_invalid["oracle_class"],
+        "oracle_lag_frames": false_invalid["oracle_lag_frames"],
+        "classification": false_invalid["classification"],
+        "reason": false_invalid["reason"],
+        "sync_region_length_frames": min(
+            limitation_case.baseline_sync_length_frames,
+            limitation_case.candidate_sync_length_frames,
+        ),
+        "minimum_overlap_frames": selected.minimum_overlap_frames,
+    }
+    for name, expected in limitation_expected.items():
+        if limitation.get(name) != expected:
+            raise ValueError(f"accepted limitation {name} must be {expected!r}, got {limitation.get(name)!r}")
+    if not isinstance(limitation.get("rationale"), str) or not limitation["rationale"]:
+        raise ValueError("accepted false-invalid limitation requires rationale")
+
+    return {
+        "status": "approved",
+        "decision_id": decision["decision_id"],
+        "decision_version": decision["decision_version"],
+        "decision_date": decision["decision_date"],
+        "decision_sha256": decision_digest,
+        "owner": decision["owner"],
+        "selection_method": decision["selection_method"],
+        "selected_operating_point": selected.id,
+        "selected_operating_point_digest": selected.parameter_digest(),
+        "selected_parameters": expected_parameters,
+        "automatic_selection": False,
+        "fallback_operating_point_id": None,
+        "scope": decision["scope"],
+        "universal_default": False,
+        "frozen_calibration_config_sha256": config_digest,
+        "frozen_candidate_set_sha256": candidate_set_digest,
+        "frozen_corpus_provenance_sha256": corpus_provenance_digest,
+        "approved_holdout_error_budget": dict(approved_budget),
+        "observed_holdout_error_budget": observed_budget,
+        "error_budget_satisfied": True,
+        "accepted_false_invalid": dict(limitation),
+        "rationale": list(decision["rationale"]),
+        "spec_001_status": decision["specification_transition"],
+    }
+
+
 def _empty_matrix() -> dict[str, dict[str, int]]:
     return {
         oracle: {classification: 0 for classification in ("valid", "ambiguous", "invalid")}
@@ -1072,7 +1251,7 @@ def collect_provenance(config_digest: str) -> dict[str, Any]:
     }
 
 
-def run_experiment(config_path: Path) -> dict[str, Any]:
+def run_experiment(config_path: Path, decision_path: Path | None = None) -> dict[str, Any]:
     config, config_digest = load_config(config_path)
     if config.get("experiment_id") != "T-CMP-CAL-001":
         raise ValueError("unexpected experiment_id")
@@ -1106,10 +1285,32 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
                 "holdout": _evaluate_point(point, holdout_cases, observation_cache, unchanged_by_case),
             }
         )
+    case_provenance = [case.provenance() for case in cases]
+    corpus_provenance_digest = _sha256_bytes(_canonical_json(case_provenance))
+    if decision_path is None:
+        decision_record = _pending_decision()
+    else:
+        decision, decision_digest = load_config(decision_path)
+        decision_record = validate_m1_decision(
+            decision,
+            decision_digest=decision_digest,
+            config_digest=config_digest,
+            candidate_set_digest=frozen_candidate_digest,
+            corpus_provenance_digest=corpus_provenance_digest,
+            candidates=candidates,
+            candidate_results=candidate_results,
+            cases=cases,
+        )
     raw_observations = {
         case.case_id: [asdict(observation) for observation in observation_cache[case.case_id]]
         for case in cases
     }
+    reproduction_arguments = [
+        "python", "tools/alignment_calibration.py", "--config", "configs/calibration/t_cmp_cal_001.json",
+    ]
+    if decision_path is not None:
+        reproduction_arguments.extend(["--decision", "configs/policies/m1-alignment-operating-point.json"])
+    reproduction_arguments.extend(["--output", "artifacts/t_cmp_cal_001"])
     return {
         "schema_version": "1.0.0",
         "experiment_id": "T-CMP-CAL-001",
@@ -1117,19 +1318,18 @@ def run_experiment(config_path: Path) -> dict[str, Any]:
         "requirements": config["requirements"],
         "provenance": collect_provenance(config_digest),
         "reproduction": {
-            "display_command": "python tools/alignment_calibration.py --config configs/calibration/t_cmp_cal_001.json --output artifacts/t_cmp_cal_001",
-            "arguments": [
-                "python", "tools/alignment_calibration.py", "--config", "configs/calibration/t_cmp_cal_001.json",
-                "--output", "artifacts/t_cmp_cal_001",
-            ],
+            "display_command": " ".join(reproduction_arguments),
+            "arguments": reproduction_arguments,
         },
         "method_document": "docs/calibration/T-CMP-CAL-001-method.md",
         "search_bounds_reported_lag_frames": config["search_bounds_reported_lag_frames"],
         "leakage_checks": leakage_checks,
         "frozen_candidate_set_sha256": frozen_candidate_digest,
-        "case_provenance": [case.provenance() for case in cases],
+        "frozen_corpus_provenance_sha256": corpus_provenance_digest,
+        "case_provenance": case_provenance,
         "calibration_sweep": sweep_results,
         "candidate_results": candidate_results,
+        "decision": decision_record,
         "raw_lag_observations": raw_observations,
     }
 
@@ -1146,6 +1346,7 @@ def _curated_summary(result: dict[str, Any]) -> dict[str, Any]:
         "search_bounds_reported_lag_frames": result["search_bounds_reported_lag_frames"],
         "leakage_checks": result["leakage_checks"],
         "frozen_candidate_set_sha256": result["frozen_candidate_set_sha256"],
+        "frozen_corpus_provenance_sha256": result["frozen_corpus_provenance_sha256"],
         "case_provenance": result["case_provenance"],
         "calibration_sweep": [
             {
@@ -1165,11 +1366,7 @@ def _curated_summary(result: dict[str, Any]) -> dict[str, Any]:
             }
             for item in result["candidate_results"]
         ],
-        "decision": {
-            "status": "human_selection_required",
-            "selected_operating_point": None,
-            "spec_001_status": "Review",
-        },
+        "decision": result["decision"],
     }
 
 
@@ -1327,15 +1524,31 @@ def _matrix_inline(matrix: dict[str, dict[str, int]]) -> str:
 
 def _evidence_markdown(result: dict[str, Any], summary_sha256: str, raw_sha256: str) -> str:
     provenance = result["provenance"]
+    decision = result["decision"]
+    approved = decision["status"] == "approved"
     lines = [
         "# T-CMP-CAL-001 calibration evidence",
         "",
-        "- **Phase:** FASE A; human operating-point decision pending",
-        "- **SPEC-001 status:** `Review` (unchanged)",
+        (
+            "- **Phase:** FASE B; explicit human operating-point decision recorded"
+            if approved
+            else "- **Phase:** FASE A; human operating-point decision pending"
+        ),
+        (
+            "- **SPEC-001 status:** `Accepted` (not `Verified`)"
+            if approved
+            else "- **SPEC-001 status:** `Review` (unchanged)"
+        ),
         f"- **Source revision:** `{provenance['source_revision']}`",
         f"- **Dirty at execution:** `{str(provenance['dirty_state']).lower()}`",
         f"- **Configuration SHA-256:** `{provenance['configuration_sha256']}`",
         f"- **Frozen candidate-set SHA-256:** `{result['frozen_candidate_set_sha256']}`",
+        f"- **Frozen corpus-provenance SHA-256:** `{result['frozen_corpus_provenance_sha256']}`",
+        *(
+            [f"- **M1 decision SHA-256:** `{decision['decision_sha256']}`"]
+            if approved
+            else []
+        ),
         f"- **Curated summary SHA-256:** `{summary_sha256}`",
         f"- **Ignored full raw result SHA-256:** `{raw_sha256}`",
         "",
@@ -1448,14 +1661,50 @@ def _evidence_markdown(result: dict[str, Any], summary_sha256: str, raw_sha256: 
         "from one construction are correlated, and reusing this holdout after changing a",
         "candidate would turn it into tuning data. Large per-lag score observations remain",
         "outside source control.",
-        "",
-        "## Decision required",
-        "",
-        "No candidate is selected automatically. The owner must apply the stated risk",
-        "criterion, review family-level behavior, and explicitly choose an operating point",
-        "before FASE B may record rationale or change SPEC-001 from `Review`.",
-        "",
     ])
+    if approved:
+        selected = decision["selected_parameters"]
+        budget = decision["observed_holdout_error_budget"]
+        limitation = decision["accepted_false_invalid"]
+        lines.extend([
+            "",
+            "## Accepted M1 operating point",
+            "",
+            f"The repository owner explicitly selected **{decision['selected_operating_point']}**.",
+            "This decision applies only to the M1 manifest/policy; it is not a universal default.",
+            "There is no automatic selection and no fallback operating point.",
+            "",
+            f"- `plateau_epsilon={selected['plateau_epsilon']}` unitless absolute score difference",
+            f"- `maximum_primary_plateau_width_frames={selected['maximum_primary_plateau_width_frames']}` frames",
+            f"- `secondary_exclusion_radius_frames={selected['secondary_exclusion_radius_frames']}` frames",
+            f"- `minimum_primary_abs_correlation={selected['minimum_primary_abs_correlation']}` unitless",
+            f"- `minimum_accepted_peak_ratio={selected['minimum_accepted_peak_ratio']}` unitless",
+            f"- `sync_rms_floor_linear_fs={selected['sync_rms_floor_linear_fs']}` linear FS RMS",
+            f"- `minimum_overlap_frames={selected['minimum_overlap_frames']}` frames",
+            "",
+            "The rerun satisfies the approved deterministic holdout budget: "
+            f"false-valid={budget['false_valid']}, wrong-lag valid={budget['wrong_lag_valid']}, "
+            f"false-ambiguous={budget['false_ambiguous']}, false-invalid={budget['false_invalid']}.",
+            "",
+            f"The accepted false-invalid is `{limitation['case_id']}`: its "
+            f"{limitation['sync_region_length_frames']}-frame sync region cannot satisfy the selected "
+            f"{limitation['minimum_overlap_frames']}-frame minimum overlap, so the result remains "
+            f"`{limitation['classification']}` with reason `{limitation['reason']}`.",
+            "",
+            "The rationale is recorded in the M1 decision policy and in SPEC-001. The spike does",
+            "not include a production comparator, and acceptance does not claim verification.",
+            "",
+        ])
+    else:
+        lines.extend([
+            "",
+            "## Decision required",
+            "",
+            "No candidate is selected automatically. The owner must apply the stated risk",
+            "criterion, review family-level behavior, and explicitly choose an operating point",
+            "before FASE B may record rationale or change SPEC-001 from `Review`.",
+            "",
+        ])
     return "\n".join(lines)
 
 
@@ -1490,10 +1739,11 @@ def write_outputs(result: dict[str, Any], output: Path, publish_small_evidence: 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, required=True)
+    parser.add_argument("--decision", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--publish-small-evidence", type=Path)
     args = parser.parse_args(argv)
-    result = run_experiment(args.config)
+    result = run_experiment(args.config, args.decision)
     write_outputs(result, args.output, args.publish_small_evidence)
     for candidate in result["candidate_results"]:
         calibration = candidate["calibration"]["summary"]
@@ -1506,7 +1756,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"full results: {args.output.resolve()}")
     if args.publish_small_evidence:
         print(f"curated evidence: {args.publish_small_evidence.resolve()}")
-    print("SPEC-001 remains Review; human operating-point decision required.")
+    decision = result["decision"]
+    if decision["status"] == "approved":
+        budget = decision["observed_holdout_error_budget"]
+        print(
+            f"selected M1 operating point: {decision['selected_operating_point']}; "
+            f"holdout false-valid={budget['false_valid']} wrong-lag-valid={budget['wrong_lag_valid']} "
+            f"false-ambiguous={budget['false_ambiguous']} false-invalid={budget['false_invalid']}"
+        )
+        print("SPEC-001 acceptance evidence recorded; production verification remains outstanding.")
+    else:
+        print("SPEC-001 remains Review; human operating-point decision required.")
     return 0
 
 

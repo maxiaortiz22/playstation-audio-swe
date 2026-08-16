@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import copy
 from dataclasses import replace
 import hashlib
 import json
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -30,6 +32,12 @@ from tools.alignment_calibration import (
 
 ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = ROOT / "configs" / "calibration" / "t_cmp_cal_001.json"
+DECISION_PATH = ROOT / "configs" / "policies" / "m1-alignment-operating-point.json"
+
+
+@pytest.fixture(scope="module")
+def phase_b_result() -> dict[str, object]:
+    return run_experiment(CONFIG_PATH, DECISION_PATH)
 
 
 def _point(**overrides: object) -> OperatingPoint:
@@ -254,3 +262,107 @@ def test_t_cmp_cal_001_sys_ttv_004_reproduction_is_deterministic() -> None:
     assert json.loads(json.dumps(first, allow_nan=False, sort_keys=True)) == json.loads(
         json.dumps(second, allow_nan=False, sort_keys=True)
     )
+
+
+def test_t_cmp_cal_001_sys_ttv_004_selected_m1_point_is_exact_frozen_candidate(
+    phase_b_result: dict[str, object],
+) -> None:
+    decision = phase_b_result["decision"]
+    candidate_ids = {
+        item["operating_point"]["id"] for item in phase_b_result["candidate_results"]
+    }
+
+    assert decision["selected_operating_point"] == "OP-B-intermediate"
+    assert decision["selected_operating_point"] in candidate_ids
+    assert decision["selected_operating_point_digest"] == (
+        "04303b903773ea2f772dfe7998c53ad4916b27824ea42335ce178d1f2879db52"
+    )
+    assert decision["selected_parameters"] == {
+        "plateau_epsilon": 1e-5,
+        "maximum_primary_plateau_width_frames": 2,
+        "secondary_exclusion_radius_frames": 4,
+        "minimum_primary_abs_correlation": 0.50,
+        "minimum_accepted_peak_ratio": 1.10,
+        "sync_rms_floor_linear_fs": 1e-5,
+        "minimum_overlap_frames": 64,
+    }
+
+
+def test_t_cmp_cal_001_sys_ttv_004_selection_does_not_retune_frozen_inputs(
+    phase_b_result: dict[str, object],
+) -> None:
+    decision = phase_b_result["decision"]
+
+    assert hashlib.sha256(CONFIG_PATH.read_bytes()).hexdigest() == decision["frozen_calibration_config_sha256"]
+    assert phase_b_result["frozen_candidate_set_sha256"] == decision["frozen_candidate_set_sha256"]
+    assert phase_b_result["frozen_corpus_provenance_sha256"] == decision["frozen_corpus_provenance_sha256"]
+    assert all(item["disjoint"] for item in phase_b_result["leakage_checks"].values())
+
+
+def test_t_cmp_cal_001_sys_ttv_004_selected_budget_and_limitation_are_explicit(
+    phase_b_result: dict[str, object],
+) -> None:
+    decision = phase_b_result["decision"]
+
+    assert decision["approved_holdout_error_budget"] == {
+        "false_valid": 0,
+        "wrong_lag_valid": 0,
+        "false_ambiguous": 0,
+        "false_invalid": 1,
+    }
+    assert decision["observed_holdout_error_budget"] == decision["approved_holdout_error_budget"]
+    assert decision["error_budget_satisfied"] is True
+    assert decision["accepted_false_invalid"] == {
+        "case_id": "holdout-rademacher-noise-v1-10",
+        "oracle_class": "unique",
+        "oracle_lag_frames": 41,
+        "classification": "invalid",
+        "reason": "no_lag_passed_energy_and_overlap",
+        "sync_region_length_frames": 48,
+        "minimum_overlap_frames": 64,
+        "rationale": (
+            "The 48-frame synchronization region cannot satisfy the selected 64-frame minimum overlap; "
+            "preserving invalid is safer than accepting a spurious lag."
+        ),
+    }
+
+
+def test_t_cmp_cal_001_sys_ttv_004_no_decision_means_no_selection_or_fallback() -> None:
+    result = run_experiment(CONFIG_PATH)
+
+    assert result["decision"] == {
+        "status": "human_selection_required",
+        "selection_method": None,
+        "selected_operating_point": None,
+        "selected_parameters": None,
+        "automatic_selection": False,
+        "fallback_operating_point_id": None,
+        "scope": None,
+        "universal_default": False,
+        "error_budget_satisfied": None,
+        "spec_001_status": "Review",
+    }
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("automatic_selection", True),
+        ("fallback_operating_point_id", "OP-C-conservative"),
+        ("selected_operating_point_id", "OP-NOT-FROZEN"),
+    ],
+)
+def test_t_cmp_cal_001_sys_ttv_004_rejects_automatic_or_silent_fallback_selection(
+    field: str,
+    value: object,
+) -> None:
+    config, config_digest = load_config(CONFIG_PATH)
+    decision = json.loads(DECISION_PATH.read_text(encoding="utf-8"))
+    modified = copy.deepcopy(decision)
+    modified[field] = value
+
+    with mock.patch(
+        "tools.alignment_calibration.load_config",
+        side_effect=[(config, config_digest), (modified, "modified-decision-digest")],
+    ), pytest.raises(ValueError):
+        run_experiment(CONFIG_PATH, DECISION_PATH)

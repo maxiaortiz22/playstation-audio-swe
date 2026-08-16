@@ -1,0 +1,51 @@
+{
+  "decision_id": "M1-ALIGNMENT-OP-001",
+  "decision_version": "1.0.0",
+  "decision_date": "2026-08-15",
+  "owner": "repository-maintainer",
+  "selection_method": "explicit_human_owner_decision",
+  "automatic_selection": false,
+  "fallback_operating_point_id": null,
+  "scope": "m1-manifest-policy-only",
+  "experiment_id": "T-CMP-CAL-001",
+  "experiment_version": "1.0.0",
+  "frozen_calibration_config_sha256": "f065613292b263a4a024d1b724a2be2e7a83d18b622222d560c690517aa25664",
+  "frozen_candidate_set_sha256": "8c754de0823e06ef9f43cc24e07b168fa8c19ca26c3d19dcf4cbeac7a3e657b2",
+  "frozen_corpus_provenance_sha256": "d6457d7f14c41a899164089ef8d5fbf0fe254ac4972f4fb4b106ded02bd01ee0",
+  "selected_operating_point_id": "OP-B-intermediate",
+  "selected_operating_point_digest": "04303b903773ea2f772dfe7998c53ad4916b27824ea42335ce178d1f2879db52",
+  "selected_parameters": {
+    "plateau_epsilon": 0.00001,
+    "maximum_primary_plateau_width_frames": 2,
+    "secondary_exclusion_radius_frames": 4,
+    "minimum_primary_abs_correlation": 0.5,
+    "minimum_accepted_peak_ratio": 1.1,
+    "sync_rms_floor_linear_fs": 0.00001,
+    "minimum_overlap_frames": 64
+  },
+  "approved_holdout_error_budget": {
+    "false_valid": 0,
+    "wrong_lag_valid": 0,
+    "false_ambiguous": 0,
+    "false_invalid": 1
+  },
+  "accepted_false_invalid": {
+    "case_id": "holdout-rademacher-noise-v1-10",
+    "oracle_class": "unique",
+    "oracle_lag_frames": 41,
+    "classification": "invalid",
+    "reason": "no_lag_passed_energy_and_overlap",
+    "sync_region_length_frames": 48,
+    "minimum_overlap_frames": 64,
+    "rationale": "The 48-frame synchronization region cannot satisfy the selected 64-frame minimum overlap; preserving invalid is safer than accepting a spurious lag."
+  },
+  "rationale": [
+    "OP-A-permissive is rejected because holdout accepted lag 8 when the oracle was 41, violating the zero-false-valid criterion.",
+    "OP-B-intermediate and OP-C-conservative both produced zero false-valid, zero wrong-lag valid, and zero false-ambiguous on holdout.",
+    "OP-B-intermediate produced one false-invalid while OP-C-conservative produced two, so OP-B preserves the same observed safety with less unnecessary rejection.",
+    "The remaining OP-B false-invalid is the declared 48-frame synchronization-region limitation under minimum_overlap_frames=64.",
+    "OP-C-conservative additionally rejected a valid 0.0005 FS case because of its 0.001 FS RMS floor; that extra M1 cost is not accepted."
+  ],
+  "specification_transition": "Accepted",
+  "universal_default": false
+}

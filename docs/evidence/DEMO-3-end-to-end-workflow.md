@@ -27,10 +27,13 @@ result.json + report.html
 
 The runner accepts exactly `native_passthrough/1`, stereo float32 input, the
 explicit 127-frame block size, zero or one supported DEMO fault, one declared
-integer time-alignment transform, and the six focused metric requests. Invalid
-schema or semantic input returns `2` before the lazy native import/call. No
-generic registry, plugin API, retry layer, or future-scenario scaffolding is
-introduced.
+integer time-alignment transform, and the six focused metric requests. Each
+request is bound to its implemented ID, method, version, unit, and exact
+aggregate scope. OP-B is bound to accepted decision version `1.0.0` and source
+SHA-256 `67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab`
+in addition to its existing parameter digest and values. Invalid schema or
+semantic input returns `2` before the lazy native import/call. No generic
+registry, plugin API, retry layer, or future-scenario scaffolding is introduced.
 
 The four manifests are:
 
@@ -106,6 +109,7 @@ copy-pastable command targets the packaged byte-identical `manifest.json`.
 | `RPT-SCHEMA-003..004` | Structured metrics/policies and full result-schema validation for every scenario |
 | `RPT-HTML-001..004`, `RPT-HTML-008..009` | Offline autoescaped HTML, text status, raw/aligned distinction, and frame/second event detail |
 | `RPT-REP-001` | Display command plus structured argument vector against packaged exact manifest |
+| `RPT-ART-006` | Mandatory files are serialized and validated before staged publication; failed reuse retains the prior complete package unchanged, while successful reuse replaces it completely |
 | `CI-RUN-001..002`, `CI-RUN-004`, `CI-RUN-009..010` | Same runner/manifests locally and in one existing Linux/GCC wheel row; exits `0/1/2/3`; no network assets |
 
 Python evidence is in
@@ -126,17 +130,23 @@ environment and the Visual Studio 2022 v143 x64 environment:
 | `cmake --fresh --preset native-debug -DCMAKE_CXX_COMPILER=cl.exe` | configured |
 | `cmake --build --preset native-debug` | built |
 | `ctest --preset native-debug` | `14/14` passed |
-| `python -m pytest tests/python --basetemp build/pytest-final` | `228` passed |
+| `python -m pytest tests/python --basetemp build/pytest-review-final` | `264` passed |
 | `python -m build --wheel --no-isolation` | CPython 3.12 Windows wheel built |
-| `python -m pytest tests/integration --basetemp build/pytest-integration-final` from `%TEMP%` | `17` passed against the installed wheel |
-| `python -m pytest tests/e2e/test_demo3_installed_wheel.py --basetemp build/pytest-e2e-final` from `%TEMP%` | `1` passed; all four scenarios and deterministic repeat |
+| `python -m pytest tests/integration --basetemp build/pytest-review-integration` from `%TEMP%` | `17` passed against the installed wheel |
+| `python -m pytest tests/e2e/test_demo3_installed_wheel.py --basetemp build/pytest-review-wheel-e2e` from `%TEMP%` | `1` passed; all four scenarios and deterministic repeat |
 | installed-package import from `%TEMP%` | package/native `0.1.0`, Jinja2 `3.1.6` |
+
+The focused DEMO-3 module contributes `51` passing cases after review. Negative
+cases mutate every canonical metric field across all six requests and alter the
+OP-B decision/source identity while asserting no native invocation. Reused
+output tests force both result serialization and HTML reporting failures after
+a prior successful run, assert no mixed package or success summary, and also
+exercise successful complete replacement.
 
 Direct installed-wheel CLI execution from `%TEMP%` produced the four expected
 exit/status pairs: clean `0/pass`, delay `1/fail`, channel swap `1/fail`, and
-dropout `1/fail`. A second equivalent clean execution produced the same
-`result.json` SHA-256,
-`60184c1423d44f9e6315b60a191e473640d14ea4da96bfb24dae0b472492198a`.
+dropout `1/fail`. The installed-wheel E2E asserts that a second equivalent
+clean execution produces byte-identical `result.json`.
 
 The HTML assertions exercise self-containment, text status and severity,
 autoescaping, raw/aligned section placement, and localized event evidence.

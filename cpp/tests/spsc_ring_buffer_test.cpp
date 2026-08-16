@@ -4,6 +4,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 namespace {
@@ -53,7 +54,7 @@ TEST(RtQue001Through005Boundaries, FullEmptyFifoAndFailedOperationsPreserveData)
   EXPECT_EQ(destination, 20);
 }
 
-TEST(RtQue003And006Wraparound, PreservesFifoAcrossMultipleStorageWraparounds) {
+TEST(RtQue003StorageWraparound, PreservesFifoAcrossMultipleStorageWraparounds) {
   constexpr std::size_t capacity = 4;
   constexpr int rounds = 17;
   avsys::SpscRingBuffer<int> queue(capacity);
@@ -70,6 +71,19 @@ TEST(RtQue003And006Wraparound, PreservesFifoAcrossMultipleStorageWraparounds) {
       const auto expected = round * static_cast<int>(capacity) + static_cast<int>(slot);
       EXPECT_EQ(destination, expected);
     }
+  }
+}
+
+TEST(RtQue006CounterWraparound, PreservesFifoAcrossReducedWidthCounterRollover) {
+  constexpr std::size_t capacity = 4;
+  constexpr int values_to_transfer = 300;
+  avsys::SpscRingBuffer<int, std::uint8_t> queue(capacity);
+  int destination = -1;
+
+  for (int value = 0; value < values_to_transfer; ++value) {
+    ASSERT_TRUE(queue.try_push(value));
+    ASSERT_TRUE(queue.try_pop(destination));
+    EXPECT_EQ(destination, value);
   }
 }
 

@@ -17,7 +17,7 @@ does not claim that either specification is fully implemented or verified.
 | `SYS-EXE-006` | `T-SYS-003` complete-manifest positive/negative tests | Schema structure covered; ordering before native execution remains pending until a runner exists |
 | `SYS-EXE-007` | `T-SYS-003` strict UTF-8, duplicate-key, non-finite, comment, trailing-comma, coercion, unknown-field, and path-diagnostic tests | Implemented for the initial manifest reader |
 | `RPT-SCHEMA-001..009` | `T-RPT-001` Draft 2020-12 validation, required fields, typed evidence, additive-field round-trip, and non-finite tests | Implemented for the initial v1 result contract |
-| `CI-RUN-006` | Distinct `native`, `python-schema`, `wheel-import`, and `sanitizers` workflow jobs | Workflow structure implemented; visible GitHub check evidence pending Actions |
+| `CI-RUN-006` | Distinct `native`, `python-schema`, `wheel-import`, and `sanitizers` workflow jobs; [Actions run 31916250302](https://github.com/maxiaortiz22/playstation-audio-swe/actions/runs/31916250302) | All ten visible matrix checks passed for commit `e0409f4` |
 
 ## Local validation record
 
@@ -57,6 +57,7 @@ Observed results:
 - JSON/TOML parsing, Python compilation, all 21 local Markdown link/fence
   checks, requirement-ID existence, and diff whitespace checks passed.
 
-Hosted Windows/Linux compiler rows, Python 3.11/3.12/3.13 compatibility, and
-ASan/UBSan remain pending until the draft PR's GitHub Actions complete. TSan is
-not introduced in this slice because no SPSC implementation exists yet.
+The draft PR's hosted run passed Windows/MSVC, Linux/GCC 13, Linux/Clang 18,
+Python 3.11.16/3.12.10/3.13.15, wheel/import on all three compiler rows, and
+ASan+UBSan. TSan is not introduced in this slice because no SPSC implementation
+exists yet.

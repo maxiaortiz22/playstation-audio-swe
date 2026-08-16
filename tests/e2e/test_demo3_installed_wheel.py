@@ -17,7 +17,7 @@ MANIFESTS = ROOT / "configs" / "manifests"
 
 def _console_script() -> Path:
     name = "avsys.exe" if os.name == "nt" else "avsys"
-    return Path(sys.executable).resolve().parent / name
+    return Path(sys.executable).parent / name
 
 
 def test_demo3_ci_run_001_002_009_installed_wheel_four_scenarios(

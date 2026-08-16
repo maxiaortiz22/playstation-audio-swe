@@ -15,7 +15,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_library(avsys_core STATIC cpp/src/version.cpp)
+add_library(avsys_core STATIC cpp/src/native_runtime.cpp cpp/src/version.cpp)
 add_library(avsys::core ALIAS avsys_core)
 target_include_directories(
   avsys_core
@@ -60,7 +60,12 @@ if(BUILD_TESTING AND AVSYS_BUILD_TESTS)
   set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
   add_subdirectory(third_party/googletest EXCLUDE_FROM_ALL)
 
-  add_executable(avsys_native_tests cpp/tests/version_test.cpp)
+  add_executable(
+    avsys_native_tests
+    cpp/tests/native_runtime_test.cpp
+    cpp/tests/spsc_ring_buffer_test.cpp
+    cpp/tests/version_test.cpp
+  )
   target_link_libraries(avsys_native_tests PRIVATE avsys::core GTest::gtest_main)
   target_compile_features(avsys_native_tests PRIVATE cxx_std_20)
 

@@ -164,6 +164,105 @@ def test_demo3_sys_exe_006_pol_eval_002_semantic_input_fails_before_native(
     assert not (tmp_path / "out").exists()
 
 
+@pytest.mark.parametrize(
+    "metric_id",
+    [
+        "latency_frames",
+        "residual_peak_linear_fs",
+        "gain_delta_db",
+        "polarity",
+        "channel_mapping",
+        "dropout_event_count",
+    ],
+)
+@pytest.mark.parametrize("field", ["id", "method", "version", "unit", "scope"])
+def test_demo3_pol_eval_002_canonical_metric_contract_fails_before_native(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    metric_id: str,
+    field: str,
+) -> None:
+    document = json.loads((MANIFESTS / "demo3-clean.json").read_text(encoding="utf-8"))
+    metric = next(item for item in document["metrics"] if item["id"] == metric_id)
+    matching_policies = [
+        item for item in document["policies"] if item["metric_id"] == metric_id
+    ]
+    if field == "id":
+        metric["id"] = f"altered_{metric_id}"
+        for policy in matching_policies:
+            policy["metric_id"] = metric["id"]
+    elif field == "method":
+        metric["method"] = "invented-method"
+    elif field == "version":
+        metric["version"] = "999"
+    elif field == "unit":
+        metric["unit"] = "invented_unit"
+        for policy in matching_policies:
+            policy["expected_unit"] = metric["unit"]
+    else:
+        metric["scope"] = {
+            "kind": "channel",
+            "parameters": {"channel_id": "left", "channel_index": 0},
+        }
+        for policy in matching_policies:
+            policy["scope"] = metric["scope"]
+
+    invalid = tmp_path / f"metric-{metric_id}-{field}.json"
+    invalid.write_text(json.dumps(document), encoding="utf-8")
+    native = mock.Mock()
+    monkeypatch.setattr(avsys, "native_passthrough", native)
+
+    assert cli.main(
+        ["run", "--manifest", str(invalid), "--output", str(tmp_path / "out")]
+    ) == 2
+    native.assert_not_called()
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "expected_message"),
+    [
+        (
+            "source_sha256",
+            "67B6D1BE69196074986DA4B20F274D8AEC33AB92F65E5A0D672AC0561FAAACAB",
+            "source_sha256 must be a lowercase SHA-256",
+        ),
+        (
+            "source_sha256",
+            "0" * 64,
+            "source_sha256 must identify the accepted OP-B source",
+        ),
+        (
+            "decision_version",
+            "2.0.0",
+            "decision_version must be 1.0.0",
+        ),
+    ],
+)
+def test_demo3_cmp_align_002_accepted_op_b_identity_fails_before_native(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    value: str,
+    expected_message: str,
+) -> None:
+    document = json.loads((MANIFESTS / "demo3-clean.json").read_text(encoding="utf-8"))
+    latency = next(item for item in document["metrics"] if item["id"] == "latency_frames")
+    latency["parameters"]["operating_point"][field] = value
+    invalid = tmp_path / f"op-b-{field}.json"
+    invalid.write_text(json.dumps(document), encoding="utf-8")
+    native = mock.Mock()
+    monkeypatch.setattr(avsys, "native_passthrough", native)
+
+    assert cli.main(
+        ["run", "--manifest", str(invalid), "--output", str(tmp_path / "out")]
+    ) == 2
+    assert expected_message in capsys.readouterr().err
+    native.assert_not_called()
+    assert not (tmp_path / "out").exists()
+
+
 def test_demo3_pol_eval_003_invalid_mandatory_alignment_returns_2(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -239,7 +338,9 @@ def test_demo3_ci_run_010_internal_runner_error_returns_3(
 
 
 def test_demo3_ci_run_010_result_contract_failure_returns_3(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
     real_dump = workflow.dump_contract
 
@@ -252,7 +353,7 @@ def test_demo3_ci_run_010_result_contract_failure_returns_3(
 
     monkeypatch.setattr(workflow, "dump_contract", fail_result)
 
-    assert cli.main(
+    exit_code = cli.main(
         [
             "run",
             "--manifest",
@@ -260,4 +361,91 @@ def test_demo3_ci_run_010_result_contract_failure_returns_3(
             "--output",
             str(tmp_path),
         ]
+    )
+
+    assert exit_code == 3
+    assert (
+        "avsys: internal runner/reporting error: result contract generation failed: "
+        "forced result failure"
+    ) in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("failure_stage", ["result_serialization", "reporting"])
+def test_demo3_rpt_art_006_failed_reuse_retains_only_prior_complete_package(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    failure_stage: str,
+) -> None:
+    output = tmp_path / "reused-output"
+    run_workflow(MANIFESTS / "demo3-clean.json", output)
+    prior = {item.name: item.read_bytes() for item in output.iterdir()}
+
+    document = json.loads((MANIFESTS / "demo3-clean.json").read_text(encoding="utf-8"))
+    document["test"]["id"] = "demo3.failed-reuse"
+    second_manifest = tmp_path / "second.json"
+    second_manifest.write_text(json.dumps(document), encoding="utf-8")
+    expected_message = "forced reused-output result failure"
+    if failure_stage == "result_serialization":
+        real_dump = workflow.dump_contract
+
+        def fail_result(document, *, contract: str):
+            if contract == "result":
+                raise ContractError(
+                    expected_message,
+                    document_path="/",
+                    schema_path="<test>",
+                )
+            return real_dump(document, contract=contract)
+
+        monkeypatch.setattr(workflow, "dump_contract", fail_result)
+    else:
+        expected_message = "forced reused-output reporting failure"
+        monkeypatch.setattr(
+            workflow, "render_report", mock.Mock(side_effect=RuntimeError(expected_message))
+        )
+
+    assert cli.main(
+        ["run", "--manifest", str(second_manifest), "--output", str(output)]
     ) == 3
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert expected_message in captured.err
+    assert {item.name: item.read_bytes() for item in output.iterdir()} == prior
+    assert set(prior) == {
+        "manifest.json",
+        "stimulus.metadata.json",
+        "result.json",
+        "report.html",
+    }
+    assert _result(output)["test_id"] == "demo3.clean"
+    assert json.loads((output / "manifest.json").read_text(encoding="utf-8"))["test"][
+        "id"
+    ] == "demo3.clean"
+    assert not any(
+        item.name.startswith(f".{output.name}.avsys-") for item in tmp_path.iterdir()
+    )
+
+
+def test_demo3_rpt_art_006_successful_reuse_replaces_complete_package(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "reused-output"
+    run_workflow(MANIFESTS / "demo3-clean.json", output)
+    prior_manifest = (output / "manifest.json").read_bytes()
+
+    document = json.loads((MANIFESTS / "demo3-clean.json").read_text(encoding="utf-8"))
+    document["test"]["id"] = "demo3.successful-reuse"
+    second_manifest = tmp_path / "second.json"
+    second_manifest.write_text(json.dumps(document), encoding="utf-8")
+
+    run_workflow(second_manifest, output)
+
+    assert (output / "manifest.json").read_bytes() != prior_manifest
+    assert _result(output)["test_id"] == "demo3.successful-reuse"
+    assert {item.name for item in output.iterdir()} == {
+        "manifest.json",
+        "stimulus.metadata.json",
+        "result.json",
+        "report.html",
+    }

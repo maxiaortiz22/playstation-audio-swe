@@ -9,8 +9,11 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from typing import Any, Mapping
 
 import numpy as np
@@ -34,7 +37,7 @@ from .analysis import (
     estimate_integer_alignment,
     validate_structure,
 )
-from .contracts import LoadedContract, dump_contract, load_contract
+from .contracts import ContractError, LoadedContract, dump_contract, load_contract
 from .faults import (
     FaultInjection,
     inject_dropout,
@@ -50,14 +53,27 @@ EXIT_POLICY_FAILURE = 1
 EXIT_INVALID = 2
 EXIT_INTERNAL_ERROR = 3
 
-_DEMO_METRICS = {
-    "latency_frames",
-    "residual_peak_linear_fs",
-    "gain_delta_db",
-    "polarity",
-    "channel_mapping",
-    "dropout_event_count",
+_AGGREGATE_SCOPE = {"kind": "aggregate", "parameters": {}}
+_DEMO_METRIC_CONTRACTS = {
+    "latency_frames": ("normalized-cross-correlation", "1", "frames"),
+    "residual_peak_linear_fs": ("aligned-absolute-residual", "1", "linear_FS"),
+    "gain_delta_db": ("aligned-rms-ratio", "1", "dB"),
+    "polarity": ("signed-normalized-correlation", "1", "categorical"),
+    "channel_mapping": ("stereo-permutation-correlation", "1", "channel_mapping"),
+    "dropout_event_count": (
+        "active-reference-near-silence-intervals",
+        "1",
+        "count",
+    ),
 }
+_DEMO_ARTIFACT_NAMES = frozenset(
+    {"manifest.json", "stimulus.metadata.json", "result.json", "report.html"}
+)
+_LOWER_SHA256 = re.compile(r"[0-9a-f]{64}")
+_OP_B_DECISION_VERSION = "1.0.0"
+_OP_B_SOURCE_SHA256 = (
+    "67b6d1be69196074986da4b20f274d8aec33ab92f65e5a0d672ac0561faaacab"
+)
 _OP_B_VALUES = {
     "plateau_epsilon": 0.00001,
     "maximum_primary_plateau_width_frames": 2,
@@ -126,10 +142,24 @@ def _metric_documents(document: Mapping[str, Any]) -> dict[str, Mapping[str, Any
     metrics = {item["id"]: item for item in document["metrics"]}
     if len(metrics) != len(document["metrics"]):
         raise DemoInputError("DEMO-3 metric IDs must be unique")
-    if set(metrics) != _DEMO_METRICS:
+    if set(metrics) != set(_DEMO_METRIC_CONTRACTS):
         raise DemoInputError(
-            f"DEMO-3 requires the exact focused metric set {sorted(_DEMO_METRICS)}"
+            "DEMO-3 requires the exact focused metric set "
+            f"{sorted(_DEMO_METRIC_CONTRACTS)}"
         )
+    for metric_id, (method, version, unit) in _DEMO_METRIC_CONTRACTS.items():
+        metric = metrics[metric_id]
+        expected = {
+            "method": method,
+            "version": version,
+            "unit": unit,
+            "scope": _AGGREGATE_SCOPE,
+        }
+        for field, expected_value in expected.items():
+            if metric[field] != expected_value:
+                raise DemoInputError(
+                    f"DEMO-3 metric {metric_id} requires {field}={expected_value!r}"
+                )
     return metrics
 
 
@@ -150,13 +180,19 @@ def _alignment_operating_point(parameters: Mapping[str, Any]) -> AlignmentOperat
         raise DemoInputError("DEMO-3 requires the manifest-declared OP-B-intermediate choice")
     if operating["decision_id"] != "M1-ALIGNMENT-OP-001":
         raise DemoInputError("alignment decision_id must be M1-ALIGNMENT-OP-001")
+    if operating["decision_version"] != _OP_B_DECISION_VERSION:
+        raise DemoInputError(
+            f"alignment decision_version must be {_OP_B_DECISION_VERSION}"
+        )
     if operating["scope"] != "m1-manifest-policy-only":
         raise DemoInputError("alignment operating point must retain its M1-only scope")
     source_sha = operating["source_sha256"]
     digest = operating["selected_operating_point_digest"]
-    if not isinstance(source_sha, str) or len(source_sha) != 64:
+    if not isinstance(source_sha, str) or _LOWER_SHA256.fullmatch(source_sha) is None:
         raise DemoInputError("alignment source_sha256 must be a lowercase SHA-256")
-    if not isinstance(digest, str) or len(digest) != 64:
+    if source_sha != _OP_B_SOURCE_SHA256:
+        raise DemoInputError("alignment source_sha256 must identify the accepted OP-B source")
+    if not isinstance(digest, str) or _LOWER_SHA256.fullmatch(digest) is None:
         raise DemoInputError("selected operating-point digest must be a lowercase SHA-256")
     for name, expected in _OP_B_VALUES.items():
         if operating[name] != expected:
@@ -594,6 +630,75 @@ def _fault_document(injection: FaultInjection | None) -> list[dict[str, Any]]:
     ]
 
 
+def _publish_demo_artifacts(output: Path, artifacts: Mapping[str, bytes]) -> None:
+    if set(artifacts) != _DEMO_ARTIFACT_NAMES:
+        raise DemoReportingError(
+            "DEMO-3 publication requires the exact mandatory artifact set"
+        )
+    if output.name in {"", ".", ".."}:
+        raise DemoReportingError("DEMO-3 output must name a dedicated artifact directory")
+
+    parent = output.parent
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        staging = Path(
+            tempfile.mkdtemp(prefix=f".{output.name}.avsys-staging-", dir=parent)
+        )
+    except OSError as error:
+        raise DemoReportingError(f"artifact staging failed: {error}") from error
+
+    backup: Path | None = None
+    staging_present = True
+    try:
+        for name, content in artifacts.items():
+            (staging / name).write_bytes(content)
+
+        if os.path.lexists(output):
+            if output.is_symlink() or not output.is_dir():
+                raise DemoReportingError(
+                    "DEMO-3 output reuse requires a regular artifact directory"
+                )
+            existing_names = {item.name for item in output.iterdir()}
+            if existing_names not in (set(), set(_DEMO_ARTIFACT_NAMES)):
+                raise DemoReportingError(
+                    "DEMO-3 output reuse requires an empty directory or a complete prior package"
+                )
+            backup = Path(
+                tempfile.mkdtemp(prefix=f".{output.name}.avsys-previous-", dir=parent)
+            )
+            backup.rmdir()
+            os.replace(output, backup)
+
+        try:
+            os.replace(staging, output)
+            staging_present = False
+        except OSError:
+            if backup is not None and os.path.lexists(backup):
+                os.replace(backup, output)
+                backup = None
+            raise
+
+        if backup is not None:
+            shutil.rmtree(backup, ignore_errors=True)
+            backup = None
+    except DemoReportingError:
+        raise
+    except OSError as error:
+        raise DemoReportingError(f"artifact publication failed: {error}") from error
+    finally:
+        if staging_present and os.path.lexists(staging):
+            shutil.rmtree(staging, ignore_errors=True)
+        if backup is not None and os.path.lexists(backup):
+            if not os.path.lexists(output):
+                try:
+                    os.replace(backup, output)
+                    backup = None
+                except OSError:
+                    pass
+            elif backup is not None:
+                shutil.rmtree(backup, ignore_errors=True)
+
+
 def run_workflow(manifest_path: str | Path, output_directory: str | Path) -> WorkflowOutcome:
     """Execute the intentionally narrow DEMO-3 pipeline and write JSON/HTML."""
 
@@ -1010,18 +1115,10 @@ def run_workflow(manifest_path: str | Path, output_directory: str | Path) -> Wor
         },
     }
 
-    output = Path(output_directory)
-    output.mkdir(parents=True, exist_ok=True)
-    packaged_manifest = output / "manifest.json"
-    metadata_path = output / "stimulus.metadata.json"
-    result_path = output / "result.json"
-    report_path = output / "report.html"
-    packaged_manifest.write_bytes(manifest.raw)
     try:
         metadata_bytes = dump_contract(
             stimulus.metadata.to_document(), contract="stimulus_metadata"
         )
-        metadata_path.write_bytes(metadata_bytes)
         result["artifacts"] = [
             {
                 "relative_path": "manifest.json",
@@ -1052,10 +1149,21 @@ def run_workflow(manifest_path: str | Path, output_directory: str | Path) -> Wor
             }
         )
         result_bytes = dump_contract(result, contract="result")
-        report_path.write_bytes(report_bytes)
-        result_path.write_bytes(result_bytes)
     except ContractError as error:
         raise DemoReportingError(f"result contract generation failed: {error}") from error
+
+    output = Path(output_directory)
+    result_path = output / "result.json"
+    report_path = output / "report.html"
+    _publish_demo_artifacts(
+        output,
+        {
+            "manifest.json": manifest.raw,
+            "stimulus.metadata.json": metadata_bytes,
+            "result.json": result_bytes,
+            "report.html": report_bytes,
+        },
+    )
     return WorkflowOutcome(exit_code, result_path, report_path, result)
 
 
